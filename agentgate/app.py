@@ -74,7 +74,7 @@ def create_app(config_path: str) -> FastAPI:
         await client.aclose()
         _DRAINING = False
 
-    app = FastAPI(title="AgentGate", version="0.2.0", docs_url=None, redoc_url=None, lifespan=lifespan)
+    app = FastAPI(title="AgentGate", version="0.3.0", docs_url=None, redoc_url=None, lifespan=lifespan)
 
     # ── expose shared state for dashboard routes ──
     app.state.pipeline = pipeline
@@ -98,7 +98,7 @@ def create_app(config_path: str) -> FastAPI:
     async def health():
         return {
             "status": "draining" if _DRAINING else "ok",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "tools": cfg.list_names(),
             "breakers": {n: b.state.value for n, b in pipeline._breakers.items()},
             "monitor_running": health_monitor.running,
@@ -107,7 +107,7 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.get("/version")
     async def version():
-        return {"version": "0.2.0", "project": "AgentGate"}
+        return {"version": "0.3.0", "project": "AgentGate"}
 
     @app.get("/metrics")
     async def metrics_endpoint():
@@ -137,6 +137,25 @@ def create_app(config_path: str) -> FastAPI:
                     {"error": True, "reason": "unauthorized", "detail": "invalid or missing token", "request_id": req_id},
                     status_code=401,
                 )
+
+            # ── tenant enforcement (if tenants configured) ──
+            from agentgate.tenant import tenant_manager
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                api_key = auth_header[7:]
+                tenant = tenant_manager.resolve(api_key)
+                if tenant is not None:
+                    if not tenant.check_scope(name):
+                        return JSONResponse(
+                            {"error": True, "reason": "forbidden",
+                             "detail": f"tenant {tenant.tenant_id!r} has no access to tool {name!r}",
+                             "request_id": req_id}, status_code=403)
+                    if not tenant.check_quota():
+                        return JSONResponse(
+                            {"error": True, "reason": "quota_exceeded",
+                             "detail": f"tenant {tenant.tenant_id!r} quota exhausted",
+                             "request_id": req_id}, status_code=429)
+                    tenant.consume()
 
             if name not in cfg.tools:
                 return JSONResponse(
