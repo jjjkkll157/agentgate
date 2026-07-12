@@ -21,6 +21,7 @@ def create_app(config_path: str) -> FastAPI:
     client = httpx.AsyncClient()
     metrics = MetricsCollector()
     health_monitor = HealthMonitor(cfg)
+    health_monitor._breakers = pipeline._breakers  # wire health → breakers
 
     app = FastAPI(title="AgentGate", version="0.1.0", docs_url=None, redoc_url=None)
 

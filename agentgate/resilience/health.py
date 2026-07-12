@@ -25,6 +25,7 @@ class HealthMonitor:
         self._config = config
         self._interval = interval
         self._task: asyncio.Task | None = None
+        self._breakers: dict[str, Any] = {}  # injected after Pipeline init
 
     async def start(self, client: httpx.AsyncClient):
         """Begin background probing.  Call stop() to cancel."""
@@ -53,12 +54,20 @@ class HealthMonitor:
                     continue
                 try:
                     resp = await client.get(url, timeout=min(health_cfg.get("timeout", 5.0), 10.0))
+                    breaker = self._breakers.get(name)
                     if resp.status_code < 400:
                         logger.debug("health ok: %s (%d)", name, resp.status_code)
+                        if breaker is not None:
+                            await breaker.on_success()
                     else:
                         logger.warning("health fail: %s (%d)", name, resp.status_code)
+                        if breaker is not None:
+                            await breaker.on_failure()
                 except Exception:
                     logger.debug("health unreachable: %s", name, exc_info=True)
+                    breaker = self._breakers.get(name)
+                    if breaker is not None:
+                        await breaker.on_failure()
 
     @property
     def running(self) -> bool:

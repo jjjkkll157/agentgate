@@ -56,12 +56,16 @@ def validate_input(params: dict, schema: dict | None) -> dict | None:
         expected = prop.get("type")
         if expected == "string" and not isinstance(val, str):
             return format_error("schema_violation", f"{key!r}: expected string, got {type(val).__name__}")
-        if expected == "integer" and not isinstance(val, int):
+        if expected == "integer" and (not isinstance(val, int) or isinstance(val, bool)):
             return format_error("schema_violation", f"{key!r}: expected integer, got {type(val).__name__}")
         if expected == "number" and not isinstance(val, (int, float)):
             return format_error("schema_violation", f"{key!r}: expected number, got {type(val).__name__}")
         if expected == "boolean" and not isinstance(val, bool):
             return format_error("schema_violation", f"{key!r}: expected boolean, got {type(val).__name__}")
+        if expected == "array" and not isinstance(val, list):
+            return format_error("schema_violation", f"{key!r}: expected array, got {type(val).__name__}")
+        if expected == "object" and not isinstance(val, dict):
+            return format_error("schema_violation", f"{key!r}: expected object, got {type(val).__name__}")
     return None
 
 

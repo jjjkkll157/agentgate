@@ -19,6 +19,18 @@ from agentgate.validation import format_error, format_success, validate_input, v
 logger = logging.getLogger("agentgate.proxy")
 
 
+def _parse_retry_after_http_date(raw: str) -> float:
+    """Parse an HTTP-date Retry-After header into seconds from now.
+    Returns 0 if the date is in the past or unparseable."""
+    from email.utils import parsedate_to_datetime
+    try:
+        dt = parsedate_to_datetime(raw)
+        remaining = (dt.timestamp() - __import__("time").time())
+        return max(0.0, remaining)
+    except Exception:
+        return 0.0
+
+
 class Pipeline:
     """Runs one tool invocation through retry, rate-limit, circuit-breaker,
     concurrency control, middleware hooks, and cache."""
@@ -109,6 +121,15 @@ class Pipeline:
             logger.debug("cache hit %s tool=%s", ctx.request_id, tool_name)
             return format_success(cached, cached=True, attempt=0)
 
+        # --- circuit breaker (check BEFORE rate limit so rejected requests
+        #     don't waste tokens) ---
+        breaker = self._get_breaker(tool)
+        if not await breaker.before_request():
+            ctx.error = "circuit_open"
+            ctx.finish()
+            retry_after = breaker.retry_after()
+            return format_error("circuit_open", f"circuit open for {tool.name!r}", retry_after=retry_after, circuit_open=True)
+
         # --- rate limit ---
         limiter = self._get_limiter(tool)
         if not await limiter.acquire():
@@ -118,14 +139,6 @@ class Pipeline:
                 ctx.finish()
                 return format_error("rate_limit_timeout", "queue wait exhausted")
 
-        # --- circuit breaker ---
-        breaker = self._get_breaker(tool)
-        if not await breaker.before_request():
-            ctx.error = "circuit_open"
-            ctx.finish()
-            retry_after = breaker.retry_after()
-            return format_error("circuit_open", f"circuit open for {tool.name!r}", retry_after=retry_after, circuit_open=True)
-
         # --- concurrency control ---
         cc = self._get_concurrency(tool)
         if cc is not None:
@@ -134,7 +147,7 @@ class Pipeline:
                 return format_error("concurrency_limit", "too many concurrent requests")
 
         try:
-            result = await self._run_retry_loop(tool, ctx, params, client, breaker)
+            result = await self._run_retry_loop(tool, ctx, params, client, breaker, ttl)
         finally:
             if cc is not None:
                 cc.release()
@@ -147,7 +160,7 @@ class Pipeline:
 
         return result
 
-    async def _run_retry_loop(self, tool: ToolConfig, ctx: RequestContext, params: dict, client: httpx.AsyncClient, breaker: CircuitBreaker) -> dict:
+    async def _run_retry_loop(self, tool: ToolConfig, ctx: RequestContext, params: dict, client: httpx.AsyncClient, breaker: CircuitBreaker, ttl: float) -> dict:
         retry = RetryPolicy(
             max_attempts=tool.retry["max_attempts"],
             backoff=tool.retry["backoff"],
@@ -211,6 +224,7 @@ class Pipeline:
             retry_after=breaker.retry_after(),
             circuit_open=breaker.state.value == "open",
             status_code=getattr(last_error, "status_code", 0) if last_error else 0,
+            raw_body=getattr(last_error, "body", ""),
         )
 
     # ---------- internal ----------
@@ -252,7 +266,8 @@ class Pipeline:
                 try:
                     err.retry_after_seconds = float(ra)  # type: ignore
                 except ValueError:
-                    err.retry_after_seconds = 0  # type: ignore
+                    # HTTP-date format, e.g. "Wed, 21 Oct 2026 07:28:00 GMT"
+                    err.retry_after_seconds = _parse_retry_after_http_date(ra)  # type: ignore
             try:
                 body_text = resp.text[:500]
             except Exception:

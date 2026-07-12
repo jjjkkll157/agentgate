@@ -29,6 +29,12 @@ class MCPServer:
 
     def __init__(self, config: Config):
         self._config = config
+        self._pipeline: Any = None  # lazily created, shared across calls
+
+    def _ensure_pipeline(self):
+        if self._pipeline is None:
+            from agentgate.core.pipeline import Pipeline
+            self._pipeline = Pipeline(self._config)
 
     async def list_tools(self) -> list[dict[str, Any]]:
         """Return the tool list in MCP format."""
@@ -47,11 +53,9 @@ class MCPServer:
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Execute a tool and return MCP-compatible content."""
         import httpx
-        from agentgate.core.pipeline import Pipeline
-
-        pipeline = Pipeline(self._config)
+        self._ensure_pipeline()
         async with httpx.AsyncClient() as client:
-            result = await pipeline.run(name, arguments, client)
+            result = await self._pipeline.run(name, arguments, client)
 
         if result.get("error"):
             return {
