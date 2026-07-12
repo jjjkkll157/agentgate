@@ -12,11 +12,18 @@ from agentgate.telemetry.request_log import record
 
 
 def create_app(config_path: str) -> FastAPI:
+    import time
     cfg = Config(config_path)
     cache = Cache()
     pipeline = Pipeline(cfg, cache=cache)
+    client = httpx.AsyncClient()
 
     app = FastAPI(title="AgentGate", version="0.1.0", docs_url=None, redoc_url=None)
+
+    @app.on_event("shutdown")
+    async def _shutdown():
+        await client.aclose()
+
     app.include_router(dashboard_router)
 
     @app.get("/health")
@@ -36,14 +43,15 @@ def create_app(config_path: str) -> FastAPI:
             except Exception:
                 params = {}
 
-        async with httpx.AsyncClient() as client:
-            result = await pipeline.run(name, params, client)
+        t0 = time.monotonic()
+        result = await pipeline.run(name, params, client)
+        latency_ms = (time.monotonic() - t0) * 1000
 
         entry = {
             "tool": name,
             "status": result.get("status", 200 if not result.get("error") else 0),
             "error": result.get("reason", ""),
-            "latency_ms": 0,
+            "latency_ms": round(latency_ms, 1),
             "cached": result.get("cached", False),
         }
         record(entry)

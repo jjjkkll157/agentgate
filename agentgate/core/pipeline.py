@@ -12,7 +12,7 @@ from agentgate.resilience.retry import RetryPolicy
 from agentgate.resilience.ratelimit import RateLimiter
 from agentgate.resilience.circuit import CircuitBreaker
 from agentgate.cache import Cache
-from agentgate.validation import format_error, format_success
+from agentgate.validation import format_error, format_success, validate_input, validate_output
 
 logger = logging.getLogger("agentgate.proxy")
 
@@ -59,6 +59,12 @@ class Pipeline:
         ctx = RequestContext(tool_name=tool_name)
         logger.info("request %s tool=%s", ctx.request_id, tool_name)
 
+        # --- input schema validation ---
+        schema_err = validate_input(params, tool.schema_in)
+        if schema_err is not None:
+            ctx.finish()
+            return schema_err
+
         # --- cache check ---
         ttl = tool.cache.get("ttl_seconds", 0)
         cached = self._cache.get(tool.name, tool.method, params, ttl)
@@ -99,8 +105,19 @@ class Pipeline:
             try:
                 result = await self._execute_one(tool, ctx, params, client)
                 await breaker.on_success()
-                # cache on success
-                self._cache.set(tool.name, tool.method, params, result["data"])
+                # output schema validation
+                out_err = validate_output(result.get("data", {}), tool.schema_out)
+                if out_err is not None:
+                    last_error = RuntimeError(out_err["detail"])
+                    last_error.status_code = 0  # type: ignore
+                    await breaker.on_failure()
+                    if not retry.should_retry(None, attempt):
+                        break
+                    await retry.wait(attempt)
+                    continue
+                # cache on success (skip if TTL is 0)
+                if ttl > 0:
+                    self._cache.set(tool.name, tool.method, params, result["data"])
                 ctx.finish()
                 logger.info(
                     "ok %s tool=%s attempt=%d latency=%.0fms",
@@ -160,11 +177,18 @@ class Pipeline:
 
         ctx.status_code = resp.status_code
 
+        # Sync rate-limit headers back to the local token bucket.
+        remaining_raw = resp.headers.get("X-RateLimit-Remaining")
+        if remaining_raw is not None:
+            try:
+                self._get_limiter(tool).update_from_headers(int(remaining_raw.split("/")[0]))
+            except (ValueError, KeyError):
+                pass
+
         # Surface HTTP errors with status code so retry logic can act on them.
         if resp.status_code >= 400:
             err = RuntimeError(f"{resp.status_code} {resp.reason_phrase}")
             err.status_code = resp.status_code  # type: ignore
-            # Try to grab a text snippet for error formatting
             try:
                 body_text = resp.text[:500]
             except Exception:

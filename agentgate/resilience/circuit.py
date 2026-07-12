@@ -20,6 +20,7 @@ class CircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._last_failure_time = 0.0
+        self._probe_active = False
         self._lock = asyncio.Lock()
 
     @property
@@ -34,14 +35,21 @@ class CircuitBreaker:
             if self._state == CircuitState.OPEN:
                 if time.monotonic() - self._last_failure_time >= self.cooldown_seconds:
                     self._state = CircuitState.HALF_OPEN
-                    return True
-                return False
-            # HALF_OPEN — allow one probe
-            return True
+                    self._probe_active = False
+                else:
+                    return False
+            # HALF_OPEN — allow exactly one probe at a time
+            if self._state == CircuitState.HALF_OPEN:
+                if self._probe_active:
+                    return False
+                self._probe_active = True
+                return True
+            return False  # unreachable
 
     async def on_success(self):
         async with self._lock:
             self._failure_count = 0
+            self._probe_active = False
             if self._state == CircuitState.HALF_OPEN:
                 self._state = CircuitState.CLOSED
 
@@ -49,6 +57,7 @@ class CircuitBreaker:
         async with self._lock:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
+            self._probe_active = False
             if self._failure_count >= self.failure_threshold:
                 self._state = CircuitState.OPEN
 

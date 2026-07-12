@@ -1,6 +1,6 @@
 import pytest
 from agentgate.cache import Cache
-from agentgate.validation import format_error, format_success
+from agentgate.validation import format_error, format_success, validate_input, validate_output
 
 
 class TestCache:
@@ -47,3 +47,38 @@ class TestErrorFormatter:
         assert s["data"] == {"answer": 42}
         assert s["attempt"] == 2
         assert s["cached"] is False
+
+
+class TestSchemaValidator:
+    def test_input_missing_required(self):
+        schema = {"required": ["q"], "properties": {"q": {"type": "string"}}}
+        err = validate_input({}, schema)
+        assert err is not None
+        assert err["reason"] == "schema_violation"
+        assert "q" in err["detail"]
+
+    def test_input_wrong_type(self):
+        schema = {"properties": {"limit": {"type": "integer"}}}
+        err = validate_input({"limit": "not_an_int"}, schema)
+        assert err is not None
+        assert "integer" in err["detail"]
+
+    def test_input_passes(self):
+        schema = {"required": ["q"], "properties": {"q": {"type": "string"}}}
+        assert validate_input({"q": "hello"}, schema) is None
+
+    def test_input_no_schema(self):
+        assert validate_input({"anything": 1}, None) is None
+
+    def test_output_missing_required(self):
+        schema = {"required": ["results"]}
+        err = validate_output({"status": "ok"}, schema)
+        assert err is not None
+        assert "results" in err["detail"]
+
+    def test_output_passes(self):
+        schema = {"required": ["results"]}
+        assert validate_output({"results": [1, 2]}, schema) is None
+
+    def test_output_no_schema(self):
+        assert validate_output({"anything": 1}, None) is None
