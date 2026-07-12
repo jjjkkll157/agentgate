@@ -92,7 +92,8 @@ class Pipeline:
             logger.info("fallback to %s", fb_name, extra={"request_id": ctx.request_id})
             try:
                 return await self._execute_one(fb_tool, ctx, params, client)
-            except Exception:
+            except Exception as exc:
+                logger.debug("fallback %s failed: %s", fb_name, exc, extra={"request_id": ctx.request_id})
                 continue
         raise RuntimeError(f"all fallbacks exhausted for {tool.name!r}")
 
@@ -181,7 +182,8 @@ class Pipeline:
                     last_error = RuntimeError(out_err["detail"])
                     last_error.status_code = 0  # type: ignore
                     await breaker.on_failure()
-                    if not retry.should_retry(None, attempt):
+                    # Schema violations are not transient — don't retry.
+                    if not retry.should_retry(0, attempt):
                         break
                     await retry.wait(attempt)
                     continue
@@ -234,6 +236,8 @@ class Pipeline:
     # ---------- internal ----------
 
     async def _execute_one(self, tool: ToolConfig, ctx: RequestContext, params: dict, client: httpx.AsyncClient) -> dict:
+        if not isinstance(params, dict):
+            params = {}
         url = tool.endpoint
         request_kwargs: dict[str, Any] = {
             "method": tool.method,

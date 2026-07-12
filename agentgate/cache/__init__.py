@@ -22,7 +22,10 @@ class Cache:
         self._max = max(max_entries, 1)
 
     def _key(self, tool: str, method: str, params: dict) -> str:
-        raw = json.dumps([tool, method, params], sort_keys=True, ensure_ascii=False)
+        try:
+            raw = json.dumps([tool, method, params], sort_keys=True, ensure_ascii=False)
+        except (TypeError, ValueError):
+            raw = json.dumps([tool, method, str(params)], sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def get(self, tool: str, method: str, params: dict, ttl: float) -> Any | None:

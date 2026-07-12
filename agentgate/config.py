@@ -59,6 +59,8 @@ class ToolConfig:
         self.headers = raw.get("headers", {})
         self.params = raw.get("params", {})
         self.body_template = raw.get("body_template", {})
+        if not isinstance(self.body_template, dict):
+            raise ValueError(f"tool {name!r}: body_template must be a mapping, got {type(self.body_template).__name__}")
         self.retry = raw.get("retry", _DEFAULT_SCHEMA["retry"])
         self.ratelimit = raw.get("ratelimit", _DEFAULT_SCHEMA["ratelimit"])
         self.circuit_breaker = raw.get("circuit_breaker", _DEFAULT_SCHEMA["circuit_breaker"])

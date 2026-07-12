@@ -32,7 +32,9 @@ class RetryPolicy:
         if attempt >= self.max_attempts:
             return False
         if status_code is None:
-            return True  # connection error
+            return True  # connection / network error — worth retrying
+        if status_code == 0:
+            return False  # non-HTTP error (schema violation, timeout) — not transient
         return status_code in self.RETRYABLE_STATUSES
 
     def delay_for(self, attempt: int, retry_after_seconds: float | None = None) -> float:

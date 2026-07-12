@@ -22,11 +22,12 @@ logger = logging.getLogger("agentgate")
 
 def create_app(config_path: str) -> FastAPI:
     import time
-    cfg = Config(config_path)
 
-    # load auth config — parse auth section from the same raw config
-    import yaml as _yaml
-    raw = _yaml.safe_load(open(config_path, encoding="utf-8").read()) or {}
+    # Load config once; reuse raw dict for auth parsing
+    from pathlib import Path as _Path
+    raw_text = _Path(config_path).read_text(encoding="utf-8")
+    raw = yaml.safe_load(raw_text) or {}
+    cfg = Config(config_path)
     auth = load_auth(raw)
 
     cache = Cache()
@@ -110,7 +111,8 @@ def create_app(config_path: str) -> FastAPI:
             params = dict(request.query_params)
         else:
             try:
-                params = await request.json()
+                body = await request.json()
+                params = body if isinstance(body, dict) else {}
             except Exception:
                 params = {}
 

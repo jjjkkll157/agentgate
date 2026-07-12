@@ -14,7 +14,7 @@ class ConcurrencyLimiter:
         if max_concurrent < 1:
             raise ValueError("max_concurrent must be >= 1")
         self._max = max_concurrent
-        self._sem = asyncio.Semaphore(max_concurrent)
+        self._sem = asyncio.BoundedSemaphore(max_concurrent)
 
     async def acquire(self, timeout: float | None = 30.0) -> bool:
         """Try to grab a slot. False on timeout, True on success.
@@ -29,12 +29,13 @@ class ConcurrencyLimiter:
             return False
 
     def release(self):
-        """Return a slot. Idempotent — won't exceed max slots."""
-        if self._sem._value >= self._max:
-            return
-        self._sem.release()
+        """Return a slot. Idempotent — swallows over-release."""
+        try:
+            self._sem.release()
+        except ValueError:
+            pass  # already at bound
 
     @property
     def available(self) -> int:
         """Number of free slots."""
-        return self._sem._value
+        return self._sem._value  # BoundedSemaphore._value is the public counter
