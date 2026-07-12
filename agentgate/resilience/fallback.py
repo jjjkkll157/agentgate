@@ -1,14 +1,10 @@
 """Standalone fallback executor for tool chains.
 
 The pipeline already handles fallback inline (_try_fallbacks).  This module
-lets external callers test or drive fallback resolution directly, and serves
-as the canonical place for future mode-aware fallback logic (strict vs
-best-effort, health-aware routing, etc.).
-"""
+lets external callers test or drive fallback resolution directly."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -16,10 +12,6 @@ import httpx
 
 from agentgate.config import Config, ToolConfig
 from agentgate.core.context import RequestContext
-from agentgate.resilience.retry import RetryPolicy
-from agentgate.resilience.ratelimit import RateLimiter
-from agentgate.resilience.circuit import CircuitBreaker
-from agentgate.cache import Cache
 from agentgate.validation import format_error, format_success
 
 logger = logging.getLogger("agentgate.fallback")
