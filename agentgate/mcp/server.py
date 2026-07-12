@@ -24,7 +24,7 @@ class MCPServer:
     Usage:
         mcp = MCPServer(config)
         tools = await mcp.list_tools()
-        result = await mcp.call_tool("web_search", {"q": "test"})
+        result = await mcp.call_tool("web_search", {"q": "test"}, client)
     """
 
     def __init__(self, config: Config):
@@ -50,20 +50,31 @@ class MCPServer:
             })
         return tools
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Execute a tool and return MCP-compatible content."""
-        import httpx
-        self._ensure_pipeline()
-        async with httpx.AsyncClient() as client:
-            result = await self._pipeline.run(name, arguments, client)
+    async def call_tool(self, name: str, arguments: dict[str, Any],
+                        client: Any = None) -> dict[str, Any]:
+        """Execute a tool and return MCP-compatible content.
 
-        if result.get("error"):
+        Pass a shared httpx.AsyncClient to reuse connections.
+        """
+        import httpx
+
+        self._ensure_pipeline()
+
+        async def _run(c):
+            result = await self._pipeline.run(name, arguments, c)
+            if result.get("error"):
+                return {
+                    "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}],
+                    "isError": True,
+                }
             return {
-                "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}],
-                "isError": True,
+                "content": [
+                    {"type": "text", "text": json.dumps(result.get("data", result), ensure_ascii=False)}
+                ],
             }
-        return {
-            "content": [
-                {"type": "text", "text": json.dumps(result.get("data", result), ensure_ascii=False)}
-            ],
-        }
+
+        if client is not None:
+            return await _run(client)
+
+        async with httpx.AsyncClient() as c:
+            return await _run(c)
