@@ -1,0 +1,49 @@
+# AgentGate demo — uses httpbin.org (free, no API key needed)
+#
+# Start:  agentgate --config examples/tools.demo.yaml
+# Then:   curl "http://localhost:9400/tool/echo_get?msg=hello"
+#         curl -X POST http://localhost:9400/tool/echo_post -H "Content-Type: application/json" -d '{"name":"AgentGate"}'
+#         curl http://localhost:9400/tool/delayed -X POST -H "Content-Type: application/json" -d '{}'
+
+tools:
+  echo_get:
+    endpoint: https://httpbin.org/get
+    method: GET
+    description: "httpbin GET echo — returns your query params"
+    retry:
+      max_attempts: 3
+    ratelimit:
+      max_per_minute: 60
+    circuit_breaker:
+      failure_threshold: 5
+      cooldown_seconds: 30
+    timeout: 15.0
+    cache:
+      ttl_seconds: 60
+
+  echo_post:
+    endpoint: https://httpbin.org/post
+    method: POST
+    description: "httpbin POST echo — returns the JSON body you sent"
+    retry:
+      max_attempts: 2
+    ratelimit:
+      max_per_minute: 30
+    circuit_breaker:
+      failure_threshold: 3
+      cooldown_seconds: 30
+    timeout: 15.0
+    schema:
+      output:
+        required: ["json"]
+
+  delayed:
+    endpoint: https://httpbin.org/delay/2
+    method: POST
+    description: "httpbin delay — always takes 2s, good for timeout testing"
+    retry:
+      max_attempts: 1
+    timeout: 5.0
+    circuit_breaker:
+      failure_threshold: 2
+      cooldown_seconds: 30

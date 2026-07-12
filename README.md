@@ -2,6 +2,12 @@
   <img src="https://raw.githubusercontent.com/jjjkkll157/agentgate/master/docs/dashboard-screenshot.png" alt="AgentGate Dashboard" width="720">
 </p>
 
+<p align="center">
+  <a href="https://pypi.org/project/agentgate/"><img src="https://img.shields.io/pypi/v/agentgate" alt="PyPI"></a>
+  <a href="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml"><img src="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/agentgate/"><img src="https://img.shields.io/pypi/pyversions/agentgate" alt="Python versions"></a>
+</p>
+
 AgentGate is a local HTTP proxy for AI agent tool calls. It sits between your agent and the external APIs it calls, handling retries, rate limits, circuit breaking, and error formatting. One `pip install`, one YAML file, no cloud, no Kubernetes. Runs on `localhost:9400`.
 
 If you have built an AI agent that calls external tools — search APIs, email, databases, anything with an HTTP endpoint — you know the drill: 429s at peak traffic, random 500s from upstream, schema changes that break your JSON parsing, connection drops mid-request. Every codebase copies the same retry boilerplate, and every codebase gets it slightly wrong.
