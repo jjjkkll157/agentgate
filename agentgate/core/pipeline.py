@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import time
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -22,10 +24,9 @@ logger = logging.getLogger("agentgate.proxy")
 def _parse_retry_after_http_date(raw: str) -> float:
     """Parse an HTTP-date Retry-After header into seconds from now.
     Returns 0 if the date is in the past or unparseable."""
-    from email.utils import parsedate_to_datetime
     try:
         dt = parsedate_to_datetime(raw)
-        remaining = (dt.timestamp() - __import__("time").time())
+        remaining = dt.timestamp() - time.time()
         return max(0.0, remaining)
     except Exception:
         return 0.0
@@ -211,8 +212,8 @@ class Pipeline:
         if tool.fallback:
             try:
                 result = await self._try_fallbacks(tool, ctx, params, client)
-                # credit the fallback tool's breaker, not the original
-                fb_breaker = self._get_breaker(self._config.get(tool.fallback[0]))
+                # signal the breaker for the tool that actually succeeded
+                fb_breaker = self._get_breaker(self._config.get(ctx.tool_name))
                 await fb_breaker.on_success()
                 ctx.finish()
                 return result

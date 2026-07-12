@@ -39,9 +39,6 @@ def create_app(config_path: str) -> FastAPI:
     # global rate limiter for the entire proxy (100 req/s by default)
     global_limiter = RateLimiter(max_per_minute=6000)
 
-    # dashboard rate limiter (10 req/s)
-    dashboard_limiter = RateLimiter(max_per_minute=600)
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await health_monitor.start(client)
