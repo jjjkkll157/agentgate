@@ -120,6 +120,13 @@ def create_app(config_path: str) -> FastAPI:
                     status_code=404,
                 )
 
+            tool_cfg = cfg.get(name)
+            if getattr(tool_cfg, "_disabled", False):
+                return JSONResponse(
+                    {"error": True, "reason": "tool_disabled", "detail": f"tool {name!r} is disabled", "request_id": req_id},
+                    status_code=503,
+                )
+
             if request.method == "GET":
                 params = dict(request.query_params)
             else:

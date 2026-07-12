@@ -243,7 +243,7 @@ class Pipeline:
             "method": tool.method,
             "url": url,
             "timeout": tool.timeout,
-            "headers": {**tool.headers},
+            "headers": {**tool.headers, "X-Request-Id": ctx.request_id},
         }
 
         if tool.method in ("POST", "PUT", "PATCH"):

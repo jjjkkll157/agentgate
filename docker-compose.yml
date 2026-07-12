@@ -1,0 +1,12 @@
+services:
+  agentgate:
+    build: .
+    ports:
+      - "9400:9400"
+    volumes:
+      - ./tools.yaml:/app/tools.yaml:ro
+    environment:
+      - BRAVE_API_KEY=${BRAVE_API_KEY:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    restart: unless-stopped
