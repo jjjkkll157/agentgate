@@ -1,0 +1,22 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 14px/1.5 'SF Mono', 'Fira Code', monospace; background: #0d1117; color: #c9d1d9; padding: 20px; }
+.topbar { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #30363d; padding-bottom: 12px; margin-bottom: 20px; }
+.topbar h1 { font-size: 18px; color: #58a6ff; }
+.dim { color: #484f58; font-size: 13px; }
+.stats { display: flex; gap: 20px; }
+.stat { color: #8b949e; font-size: 13px; }
+.stat strong { color: #c9d1d9; }
+.log-container { max-height: calc(100vh - 80px); overflow-y: auto; }
+.log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.log-header h2 { font-size: 14px; color: #8b949e; }
+.btn { font: inherit; font-size: 12px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+.btn:hover { background: #30363d; }
+.entry { display: grid; grid-template-columns: 70px 160px 50px 60px 1fr; gap: 10px; padding: 3px 0; font-size: 12px; border-bottom: 1px solid #161b22; }
+.entry:nth-child(odd) { background: #0d1117; }
+.entry.error { background: #1f0a0a; }
+.entry.cached { color: #484f58; }
+.ts { color: #484f58; }
+.tool { color: #7ee787; }
+.status { color: #d2a8ff; }
+.latency { color: #8b949e; }
+.err { color: #f85149; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

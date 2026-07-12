@@ -1,0 +1,74 @@
+# AgentGate — tools.yaml example
+#
+# Each tool defines:
+#   endpoint    — the real API URL to forward to
+#   method      — HTTP method (GET/POST; default POST)
+#   headers     — static headers (use ${ENV_VAR} for secrets)
+#   retry       — max_attempts, backoff (exponential/linear/fixed), delays
+#   ratelimit   — max_per_minute local token bucket
+#   circuit_breaker — failure_threshold + cooldown_seconds
+#   timeout     — per-request timeout in seconds
+#   cache       — ttl_seconds (0 = no cache)
+#   fallback    — list of other tool names to try if this one fails
+#   schema      — optional input/output JSON Schema for validation (NYI)
+
+tools:
+  web_search:
+    endpoint: https://api.search.brave.com/res/v1/web/search
+    method: GET
+    headers:
+      Accept: application/json
+      X-Subscription-Token: "${BRAVE_API_KEY}"
+    retry:
+      max_attempts: 3
+      backoff: exponential
+      initial_delay: 1.0
+      max_delay: 30.0
+    ratelimit:
+      max_per_minute: 20
+    circuit_breaker:
+      failure_threshold: 5
+      cooldown_seconds: 30
+    timeout: 15.0
+    cache:
+      ttl_seconds: 300
+
+  web_extract:
+    endpoint: https://extract.example.com/api/v1/extract
+    method: POST
+    headers:
+      Authorization: "Bearer ${EXTRACT_API_KEY}"
+      Content-Type: application/json
+    retry:
+      max_attempts: 2
+      backoff: linear
+      initial_delay: 2.0
+      max_delay: 10.0
+    ratelimit:
+      max_per_minute: 10
+    circuit_breaker:
+      failure_threshold: 3
+      cooldown_seconds: 60
+    timeout: 30.0
+    cache:
+      ttl_seconds: 600
+    description: "extract clean text from a URL"
+
+  send_email:
+    endpoint: https://api.resend.com/emails
+    method: POST
+    headers:
+      Authorization: "Bearer ${RESEND_API_KEY}"
+      Content-Type: application/json
+    retry:
+      max_attempts: 3
+      backoff: exponential
+      initial_delay: 1.0
+      max_delay: 30.0
+    ratelimit:
+      max_per_minute: 10
+    circuit_breaker:
+      failure_threshold: 5
+      cooldown_seconds: 30
+    timeout: 10.0
+    description: "send transactional email"

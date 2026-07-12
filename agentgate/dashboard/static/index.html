@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentGate Dashboard</title>
+<link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>AgentGate <span class="dim">v0.1.0</span></h1>
+  <div class="stats" id="stats">
+    <span class="stat">requests: <strong id="stat-total">-</strong></span>
+    <span class="stat">errors: <strong id="stat-errors">-</strong></span>
+    <span class="stat">avg latency: <strong id="stat-latency">-</strong> ms</span>
+  </div>
+</div>
+
+<div class="log-container">
+  <div class="log-header">
+    <h2>request log</h2>
+    <button onclick="fetchLog()" class="btn">⟳ refresh</button>
+  </div>
+  <div id="log-entries"></div>
+</div>
+
+<script>
+async function fetchLog() {
+  const [logRes, statsRes] = await Promise.all([
+    fetch('/dashboard/api/log?limit=50'),
+    fetch('/dashboard/api/stats')
+  ]);
+  const entries = await logRes.json();
+  const stats = await statsRes.json();
+
+  document.getElementById('stat-total').textContent = stats.total_requests;
+  document.getElementById('stat-errors').textContent = stats.errors;
+  document.getElementById('stat-latency').textContent = stats.avg_latency_ms;
+
+  const container = document.getElementById('log-entries');
+  container.innerHTML = entries.map(e => {
+    const cls = e.error ? 'entry error' : e.cached ? 'entry cached' : 'entry';
+    return `<div class="${cls}">
+      <span class="ts">${e.ts || ''}</span>
+      <span class="tool">${e.tool || ''}</span>
+      <span class="status">${e.status || ''}</span>
+      <span class="latency">${e.latency_ms != null ? Math.round(e.latency_ms) + 'ms' : ''}</span>
+      <span class="err">${e.error || ''}</span>
+    </div>`;
+  }).join('\n');
+}
+
+fetchLog();
+setInterval(fetchLog, 5000);
+</script>
+</body>
+</html>
