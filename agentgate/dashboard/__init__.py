@@ -1,6 +1,6 @@
 """Dashboard API router — serves the mini web UI."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 from pathlib import Path
 

@@ -47,6 +47,8 @@ class TestMetricsCollector:
         assert "agentgate_cache_hits_total 1" in out
         assert "agentgate_errors_total 1" in out
         assert "agentgate_latency_seconds_web_search_bucket" in out
+        assert "agentgate_latency_seconds_web_search_count 2" in out
+        assert "agentgate_latency_seconds_web_search_sum" in out
 
 
 class TestMiddleware:
