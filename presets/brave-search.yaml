@@ -1,0 +1,29 @@
+# Brave Search API — drop-in preset for agentgate
+# Usage: copy this block into your tools.yaml under "tools:"
+
+brave_search:
+  endpoint: https://api.search.brave.com/res/v1/web/search
+  method: GET
+  headers:
+    X-Subscription-Token: "${BRAVE_API_KEY}"
+    Accept: application/json
+  schema:
+    input:
+      required: [q]
+      properties:
+        q:     { type: string,  description: "search query" }
+        count: { type: integer, description: "results 1-20, default 10" }
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    initial_delay: 1.0
+    max_delay: 30.0
+  ratelimit:
+    max_per_minute: 20   # free tier: 1 req/s
+  circuit_breaker:
+    failure_threshold: 5
+    cooldown_seconds: 30
+  timeout: 15.0
+  cache:
+    ttl_seconds: 300     # cache searches 5 min
+  description: "Brave web search — privacy-first search engine API"

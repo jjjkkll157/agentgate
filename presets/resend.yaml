@@ -1,0 +1,35 @@
+# Resend Email API — drop-in preset for agentgate
+# Usage: copy this block into your tools.yaml under "tools:"
+
+send_email:
+  endpoint: https://api.resend.com/emails
+  method: POST
+  headers:
+    Authorization: "Bearer ${RESEND_API_KEY}"
+    Content-Type: application/json
+  body_template:
+    from: "agent@yourdomain.com"
+  schema:
+    input:
+      required: [to, subject]
+      properties:
+        to:      { type: string, description: "recipient email" }
+        subject: { type: string, description: "email subject" }
+        html:    { type: string, description: "HTML body" }
+        text:    { type: string, description: "plain-text fallback body" }
+    output:
+      required: [id]
+  retry:
+    max_attempts: 2
+    backoff: exponential
+    initial_delay: 2.0
+    max_delay: 10.0
+  ratelimit:
+    max_per_minute: 10
+  circuit_breaker:
+    failure_threshold: 3
+    cooldown_seconds: 60
+  timeout: 15.0
+  cache:
+    ttl_seconds: 0      # never cache sends
+  description: "Resend email delivery API"

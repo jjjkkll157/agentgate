@@ -1,0 +1,62 @@
+# GitHub REST API v3 — drop-in presets for agentgate
+# Usage: copy these blocks into your tools.yaml under "tools:"
+# Requires GITHUB_TOKEN env var (https://github.com/settings/tokens)
+
+github_search_repos:
+  endpoint: https://api.github.com/search/repositories
+  method: GET
+  headers:
+    Authorization: "Bearer ${GITHUB_TOKEN}"
+    Accept: application/vnd.github+json
+    X-GitHub-Api-Version: "2022-11-28"
+  schema:
+    input:
+      required: [q]
+      properties:
+        q:       { type: string,  description: "search query" }
+        sort:    { type: string,  description: "stars, forks, updated" }
+        order:   { type: string,  description: "asc or desc" }
+        per_page: { type: integer, description: "max 100" }
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    initial_delay: 1.0
+    max_delay: 30.0
+  ratelimit:
+    max_per_minute: 30   # GitHub: 5000/hr for authenticated users
+  circuit_breaker:
+    failure_threshold: 5
+    cooldown_seconds: 30
+  timeout: 15.0
+  cache:
+    ttl_seconds: 120
+  description: "GitHub repository search"
+
+github_create_issue:
+  endpoint: https://api.github.com/repos/${GITHUB_REPO}/issues
+  method: POST
+  headers:
+    Authorization: "Bearer ${GITHUB_TOKEN}"
+    Accept: application/vnd.github+json
+    X-GitHub-Api-Version: "2022-11-28"
+  schema:
+    input:
+      required: [title]
+      properties:
+        title: { type: string, description: "issue title" }
+        body:  { type: string, description: "issue body (markdown)" }
+        labels: { type: array, description: "label names" }
+  retry:
+    max_attempts: 2
+    backoff: fixed
+    initial_delay: 0.5
+    max_delay: 2.0
+  ratelimit:
+    max_per_minute: 20
+  circuit_breaker:
+    failure_threshold: 3
+    cooldown_seconds: 60
+  timeout: 15.0
+  cache:
+    ttl_seconds: 0
+  description: "GitHub — create issue"

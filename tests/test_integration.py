@@ -43,7 +43,7 @@ class TestHealthEndpoint:
     def test_version_endpoint(self, app_client):
         resp = app_client.get("/version")
         assert resp.status_code == 200
-        assert resp.json()["version"] == "0.1.0"
+        assert resp.json()["version"] == "0.2.0"
 
 
 class TestToolEndpoint:
