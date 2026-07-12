@@ -40,7 +40,8 @@ class RateLimiter:
         self._tokens = min(self._max, self._tokens + elapsed * self._refill_rate)
         self._last_refill = now
 
-    def update_from_headers(self, remaining: int | None):
+    async def update_from_headers(self, remaining: int | None):
         """Read X-RateLimit-Remaining from API response to tighten local estimate."""
         if remaining is not None:
-            self._tokens = min(self._tokens, float(remaining))
+            async with self._lock:
+                self._tokens = min(self._tokens, float(remaining))

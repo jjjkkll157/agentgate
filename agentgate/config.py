@@ -52,6 +52,8 @@ class ToolConfig:
 
     def __init__(self, name: str, raw: dict):
         self.name = name
+        if "endpoint" not in raw:
+            raise ValueError(f"tool {name!r}: missing required field 'endpoint'")
         self.endpoint = raw["endpoint"]
         self.method = raw.get("method", "POST").upper()
         self.headers = raw.get("headers", {})

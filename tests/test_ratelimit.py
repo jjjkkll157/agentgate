@@ -21,9 +21,8 @@ class TestRateLimiter:
         await asyncio.sleep(3.2)  # ~1 token refilled at 20/min rate
         assert await rl.acquire()
 
-    def test_update_from_headers(self):
+    @pytest.mark.asyncio
+    async def test_update_from_headers(self):
         rl = RateLimiter(max_per_minute=100)
-        rl.update_from_headers(5)
-        # Should cap local tokens at 5
-        for _ in range(5):
-            assert rl._tokens <= 5.0
+        await rl.update_from_headers(5)
+        assert rl._tokens <= 5.0

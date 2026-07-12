@@ -211,7 +211,9 @@ class Pipeline:
         if tool.fallback:
             try:
                 result = await self._try_fallbacks(tool, ctx, params, client)
-                await breaker.on_success()
+                # credit the fallback tool's breaker, not the original
+                fb_breaker = self._get_breaker(self._config.get(tool.fallback[0]))
+                await fb_breaker.on_success()
                 ctx.finish()
                 return result
             except Exception:
@@ -255,7 +257,7 @@ class Pipeline:
         remaining_raw = resp.headers.get("X-RateLimit-Remaining")
         if remaining_raw is not None:
             try:
-                self._get_limiter(tool).update_from_headers(int(remaining_raw.split("/")[0]))
+                await self._get_limiter(tool).update_from_headers(int(remaining_raw.split("/")[0]))
             except (ValueError, KeyError):
                 pass
 
