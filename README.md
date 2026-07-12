@@ -9,9 +9,9 @@
 </p>
 
 > ⚠️ **未经作者明确书面许可，禁止将本代码用于任何商业用途。**  
-> 如需商业授权，请联系：**liluelue7@gmail.com**  
+> 如需商业授权，请联系：**liluelue7@gmail.com** / **2586329235@qq.com**  
 > ⚠️ **Commercial use of this code is prohibited without explicit written permission from the author.**  
-> For commercial licensing inquiries: **liluelue7@gmail.com**
+> For commercial licensing inquiries: **liluelue7@gmail.com** / **2586329235@qq.com**
 
 <p align="center"><code>pip install git+https://github.com/jjjkkll157/agentgate.git</code></p>
 
