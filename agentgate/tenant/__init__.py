@@ -12,7 +12,7 @@ logger = logging.getLogger("agentgate.tenant")
 class TenantContext:
     """Per-tenant isolation context — keyed by API key prefix."""
     __slots__ = ("tenant_id", "scopes", "daily_limit", "daily_used",
-                 "monthly_limit", "monthly_used", "rate_limiter", "breaker")
+                 "monthly_limit", "monthly_used", "rate_limiter", "breaker", "_lock")
 
     def __init__(self, tenant_id: str, scopes: set[str], daily: int = 0, monthly: int = 0):
         self.tenant_id = tenant_id
@@ -21,8 +21,9 @@ class TenantContext:
         self.daily_used = 0
         self.monthly_limit = monthly
         self.monthly_used = 0
-        self.rate_limiter = None  # injected externally
-        self.breaker = None       # injected externally
+        self.rate_limiter = None
+        self.breaker = None
+        self._lock = asyncio.Lock()
 
     def check_scope(self, tool_name: str) -> bool:
         if not self.scopes or "*" in self.scopes:
@@ -39,6 +40,14 @@ class TenantContext:
     def consume(self):
         self.daily_used += 1
         self.monthly_used += 1
+
+    async def acquire(self):
+        """Reserve a quota slot under lock. Returns True if quota available."""
+        async with self._lock:
+            if not self.check_quota():
+                return False
+            self.consume()
+            return True
 
 
 class TenantManager:

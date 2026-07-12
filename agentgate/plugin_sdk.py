@@ -61,7 +61,7 @@ def discover_plugins(plugins_dir: str | Path = ""):
             manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
             name = manifest.get("name", manifest_path.parent.name)
             entrypoint = manifest.get("entrypoint", "")
-            if entrypoint:
+            if entrypoint and ":" in entrypoint:
                 mod_path, func_name = entrypoint.rsplit(":", 1)
                 mod = importlib.import_module(mod_path)
                 register_fn = getattr(mod, func_name)

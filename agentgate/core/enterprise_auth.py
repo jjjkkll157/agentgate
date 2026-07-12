@@ -10,7 +10,6 @@ Audit log records:
     - admin actions (disable tool, reset breaker, add/revoke key)
 """
 
-import hashlib
 import logging
 import time
 from collections import deque

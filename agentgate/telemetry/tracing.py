@@ -14,8 +14,9 @@ from typing import Any
 
 logger = logging.getLogger("agentgate.tracing")
 
-# Lazy imports — only when OTLP is configured
-_SPANS: list[dict] = []  # in-process fallback when no OTLP endpoint
+import threading
+_SPANS: list[dict] = []
+_SPAN_LOCK = threading.Lock()
 
 
 class _NoopSpan:
@@ -51,9 +52,10 @@ class _InMemSpan:
         import time
         dur = (time.monotonic_ns() - self.start_ns) / 1e6
         self.attrs["duration_ms"] = round(dur, 2)
-        _SPANS.append({"name": self.name, "attrs": self.attrs, "status": self.status})
-        if len(_SPANS) > 500:
-            _SPANS[:] = _SPANS[-200:]
+        with _SPAN_LOCK:
+            _SPANS.append({"name": self.name, "attrs": self.attrs, "status": self.status})
+            if len(_SPANS) > 500:
+                _SPANS[:] = _SPANS[-200:]
 
 
 class Tracer:
@@ -94,7 +96,8 @@ class Tracer:
 
     @classmethod
     def flush_spans(cls) -> list[dict]:
-        return list(_SPANS)
+        with _SPAN_LOCK:
+            return list(_SPANS)
 
 
 # ── convenience wrapper for pipeline instrumentation ──
