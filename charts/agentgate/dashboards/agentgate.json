@@ -1,0 +1,47 @@
+{
+  "title": "AgentGate — AI Tool Reliability Proxy",
+  "uid": "agentgate",
+  "panels": [
+    {
+      "title": "Request Rate",
+      "targets": [{"expr": "rate(agentgate_requests_total[1m])"}],
+      "type": "timeseries"
+    },
+    {
+      "title": "Error Rate",
+      "targets": [{"expr": "rate(agentgate_errors_total[1m]) / rate(agentgate_requests_total[1m])"}],
+      "type": "timeseries"
+    },
+    {
+      "title": "p99 Latency (per tool)",
+      "targets": [{"expr": "agentgate_latency_seconds{quantile=\"0.99\"}"}],
+      "type": "timeseries"
+    },
+    {
+      "title": "Cache Hit Rate",
+      "targets": [{"expr": "rate(agentgate_cache_hits_total[5m]) / rate(agentgate_requests_total[5m])"}],
+      "type": "stat"
+    },
+    {
+      "title": "Circuit Breaker States",
+      "targets": [{"expr": "agentgate_breaker_state"}],
+      "type": "state-timeline"
+    },
+    {
+      "title": "In-Flight Requests",
+      "targets": [{"expr": "agentgate_in_flight"}],
+      "type": "gauge"
+    },
+    {
+      "title": "Per-Tool Request Volume",
+      "targets": [{"expr": "sum by (tool) (rate(agentgate_requests_total[5m]))"}],
+      "type": "piechart"
+    },
+    {
+      "title": "Tenant Usage (SaaS)",
+      "targets": [{"expr": "sum by (tenant) (rate(agentgate_requests_total[1h]))"}],
+      "type": "bargauge"
+    }
+  ],
+  "schemaVersion": 39
+}

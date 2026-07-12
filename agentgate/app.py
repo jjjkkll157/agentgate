@@ -43,6 +43,23 @@ def create_app(config_path: str) -> FastAPI:
     health_monitor._breakers = pipeline._breakers
     global_limiter = RateLimiter(max_per_minute=6000)
 
+    # ── enterprise modules ──
+    # tenants
+    from agentgate.tenant import load_tenants
+    load_tenants(raw)
+
+    # OTLP tracing
+    otel_cfg = raw.get("otel", {})
+    if otel_cfg.get("endpoint"):
+        from agentgate.telemetry.tracing import Tracer
+        Tracer.init("agentgate", otel_cfg["endpoint"])
+
+    # plugin discovery
+    plugins_dir = raw.get("plugins_dir", "")
+    if plugins_dir:
+        from agentgate.plugin_sdk import discover_plugins
+        discover_plugins(plugins_dir)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         global _DRAINING
@@ -67,6 +84,13 @@ def create_app(config_path: str) -> FastAPI:
 
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     app.include_router(dashboard_router)
+
+    # ── admin panel (SaaS control plane) ──
+    try:
+        from agentgate.admin_panel import router as admin_router
+        app.include_router(admin_router)
+    except ImportError:
+        pass
 
     # ── endpoints ────────────────────────────────────────────
 

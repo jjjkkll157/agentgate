@@ -1,0 +1,75 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/jjjkkll157/agentgate
+  pullPolicy: IfNotPresent
+  tag: "0.3.0"
+
+service:
+  type: ClusterIP
+  port: 9400
+  grpcPort: 50051
+
+ingress:
+  enabled: false
+  className: ""
+  hosts:
+    - host: agentgate.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+redis:
+  # Set to a Redis URL for multi-instance state sharing
+  url: ""
+
+otel:
+  # OTLP gRPC endpoint for OpenTelemetry traces
+  endpoint: ""
+
+oauth2:
+  jwksUrl: ""
+  issuer: ""
+  audience: ""
+
+tools:
+  # Inline tools.yaml content (base64 or plain)
+  config: |
+    tools:
+      web_search:
+        endpoint: https://api.brave.com/res/v1/web/search
+        method: GET
+        headers:
+          X-Subscription-Token: "${BRAVE_API_KEY}"
+        retry: {max_attempts: 3}
+        ratelimit: {max_per_minute: 20}
+        circuit_breaker: {failure_threshold: 5, cooldown_seconds: 30}
+
+tenants:
+  # Multi-tenant API key mapping
+  config: ""
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+grafanaDashboard:
+  enabled: false

@@ -6,6 +6,7 @@ from agentgate.resilience.circuit import CircuitBreaker, CircuitState
 from agentgate.resilience.fallback import FallbackRunner
 from agentgate.resilience.concurrency import ConcurrencyLimiter
 from agentgate.resilience.health import HealthMonitor
+from agentgate.resilience.redis_store import RedisStore
 
 __all__ = [
     "RetryPolicy",
@@ -15,4 +16,5 @@ __all__ = [
     "FallbackRunner",
     "ConcurrencyLimiter",
     "HealthMonitor",
+    "RedisStore",
 ]

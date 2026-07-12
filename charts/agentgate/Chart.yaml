@@ -1,0 +1,18 @@
+apiVersion: v2
+name: agentgate
+description: AgentGate — reliability proxy for AI agent tool calls
+type: application
+version: 0.3.0
+appVersion: "0.3.0"
+keywords:
+  - ai-agent
+  - proxy
+  - circuit-breaker
+  - rate-limit
+  - reliability
+home: https://github.com/jjjkkll157/agentgate
+sources:
+  - https://github.com/jjjkkll157/agentgate
+maintainers:
+  - name: jjjkkll157
+    email: liluelue7@gmail.com
