@@ -3,10 +3,12 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/agentgate/"><img src="https://img.shields.io/pypi/v/agentgate" alt="PyPI"></a>
   <a href="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml"><img src="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml/badge.svg" alt="CI"></a>
-  <a href="https://pypi.org/project/agentgate/"><img src="https://img.shields.io/pypi/pyversions/agentgate" alt="Python versions"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
+
+<p align="center"><code>pip install git+https://github.com/jjjkkll157/agentgate.git</code></p>
 
 AgentGate is a local HTTP proxy for AI agent tool calls. It sits between your agent and the external APIs it calls, handling retries, rate limits, circuit breaking, and error formatting. One `pip install`, one YAML file, no cloud, no Kubernetes. Runs on `localhost:9400`.
 
