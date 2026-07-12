@@ -5,9 +5,11 @@
 <p align="center">
   <a href="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml"><img src="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/version-0.2.0-brightgreen" alt="v0.2.0">
+  <img src="https://img.shields.io/badge/version-0.3.0-brightgreen" alt="v0.3.0">
   <img src="https://img.shields.io/badge/tests-64%20passing-ok" alt="64 tests">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+  <img src="https://img.shields.io/badge/helm-ready-blue" alt="Helm">
+  <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker">
 </p>
 
 <p align="center">
@@ -35,6 +37,12 @@ pip install git+https://github.com/jjjkkll157/agentgate.git
 ```
 
 Python 3.10 or newer.
+
+Or use Docker:
+
+```bash
+docker compose up
+```
 
 ## Quick start
 
@@ -99,6 +107,20 @@ Dashboard at `http://localhost:9400/dashboard`.
 | Graceful shutdown | Drains in-flight requests on SIGTERM. `/health` reports `draining`. |
 | Auth | Bearer-token allowlist. Zero-config when disabled. |
 | API presets | Drop-in configs for Brave Search, Resend, GitHub — [`presets/`](presets/). |
+| SSE streaming | `GET /dashboard/api/stream` — push real-time request log to browser. |
+| Log export | `GET /dashboard/api/log/export?format=csv\|json` — download logs. |
+| Latency percentiles | p50/p90/p99 in `/metrics` (Prometheus summary) and `/dashboard/api/stats`. |
+| Request ID propagation | `X-Request-Id` header forwarded to upstream for distributed tracing. |
+| Tool enable/disable | `POST /dashboard/api/tools/{name}/enable\|disable` at runtime. |
+| **Multi-tenant** | API-key → tenant routing, per-tenant scopes, daily/monthly quotas. |
+| **OpenTelemetry** | OTLP gRPC trace export to Jaeger/Tempo. In-process span fallback. |
+| **Redis HA** | Circuit breaker, rate limit, and cache persistence across instances. |
+| **gRPC server** | High-performance alternative to REST with HTTP/2 multiplexing. |
+| **Plugin SDK** | `plugin.yaml` discovery, lifecycle hooks (`pre_request`, `on_breaker_trip`, …). |
+| **Enterprise auth** | JWT/OAuth2 with JWKS validation, audit trail for admin actions. |
+| **Helm chart** | `charts/agentgate/` — HPA, PDB, Ingress, Redis, OTEL, Grafana dashboard. |
+| **SaaS admin panel** | `/admin/` — tenant usage, API key provisioning, audit log viewer. |
+| **Docker** | `docker compose up` — one-command deployment with env vars.
 
 ## Presets
 

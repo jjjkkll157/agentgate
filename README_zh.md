@@ -5,9 +5,11 @@
 <p align="center">
   <a href="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml"><img src="https://github.com/jjjkkll157/agentgate/actions/workflows/test.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/version-0.2.0-brightgreen" alt="v0.2.0">
+  <img src="https://img.shields.io/badge/version-0.3.0-brightgreen" alt="v0.3.0">
   <img src="https://img.shields.io/badge/tests-64%20passing-ok" alt="64 个测试">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+  <img src="https://img.shields.io/badge/helm-ready-blue" alt="Helm">
+  <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker">
 </p>
 
 <p align="center">
@@ -99,6 +101,20 @@ curl -X GET "http://localhost:9400/tool/web_search?q=test"
 | 优雅关闭 | SIGTERM 时排空所有正在处理的请求。`/health` 显示 `draining` |
 | 鉴权 | Bearer Token 白名单，不配置即关闭 |
 | API 预设 | Brave Search、Resend、GitHub — 即插即用，[`presets/`](presets/) |
+| SSE 实时流 | `GET /dashboard/api/stream` — 实时推送请求日志 |
+| 日志导出 | `GET /dashboard/api/log/export?format=csv\|json` |
+| 延迟百分位 | p50/p90/p99 — Prometheus summary + dashboard |
+| Request ID 传播 | `X-Request-Id` 转发给上游，支持分布式追踪 |
+| 工具运行时管理 | `POST /tools/{name}/enable\|disable` 不停机开关 |
+| **多租户** | API Key → 租户路由，scopes 权限，日/月配额 |
+| **OpenTelemetry** | OTLP gRPC 导出到 Jaeger/Tempo |
+| **Redis 高可用** | 断路器/令牌/缓存跨实例持久化 |
+| **gRPC 服务** | HTTP/2 高性能替代 REST |
+| **插件 SDK** | `plugin.yaml` 发现，生命周期钩子 |
+| **企业认证** | JWT/OAuth2 + JWKS + 审计日志 |
+| **Helm Chart** | `charts/agentgate/` — HPA/PDB/Redis/OTEL/Grafana |
+| **SaaS 管理面板** | `/admin/` — 租户用量/API Key/审计 |
+| **Docker** | `docker compose up` 一键部署 |
 
 ## 预设
 
