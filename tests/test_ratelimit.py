@@ -13,11 +13,12 @@ class TestRateLimiter:
 
     @pytest.mark.asyncio
     async def test_refills_over_time(self):
-        rl = RateLimiter(max_per_minute=600)  # 10/sec
+        rl = RateLimiter(max_per_minute=20)  # 20 tokens total
         for _ in range(20):
             await rl.acquire()
+        # bucket should be empty now
         assert not await rl.acquire()
-        await asyncio.sleep(0.15)  # ~1.5 tokens refilled
+        await asyncio.sleep(3.2)  # ~1 token refilled at 20/min rate
         assert await rl.acquire()
 
     def test_update_from_headers(self):
