@@ -89,9 +89,7 @@ async def api_breaker_reset(name: str, request: FastAPIRequest):
     breaker = pipeline._breakers.get(name)
     if breaker is None:
         return JSONResponse({"error": True, "reason": "not_found", "detail": f"no breaker for {name!r}"}, status_code=404)
-    breaker._state = type(breaker._state)("closed")
-    breaker._failure_count = 0
-    breaker._probe_active = False
+    await breaker.reset()
     return JSONResponse({"ok": True, "tool": name, "state": breaker.state.value})
 
 

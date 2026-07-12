@@ -67,3 +67,10 @@ class CircuitBreaker:
             return 0
         remaining = self.cooldown_seconds - (time.monotonic() - self._last_failure_time)
         return max(0.0, remaining)
+
+    async def reset(self):
+        """Force the circuit back to CLOSED (e.g. manual override from dashboard)."""
+        async with self._lock:
+            self._state = CircuitState.CLOSED
+            self._failure_count = 0
+            self._probe_active = False
