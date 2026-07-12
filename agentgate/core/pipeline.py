@@ -232,17 +232,19 @@ class Pipeline:
 
     async def _execute_one(self, tool: ToolConfig, ctx: RequestContext, params: dict, client: httpx.AsyncClient) -> dict:
         url = tool.endpoint
-        headers = {**tool.headers}
         request_kwargs: dict[str, Any] = {
             "method": tool.method,
             "url": url,
             "timeout": tool.timeout,
+            "headers": {**tool.headers},
         }
 
         if tool.method in ("POST", "PUT", "PATCH"):
             body = {**tool.body_template, **params}
             request_kwargs["json"] = body
         elif tool.method == "GET":
+            request_kwargs["params"] = {**tool.params, **params}
+        elif tool.method == "DELETE":
             request_kwargs["params"] = {**tool.params, **params}
 
         resp = await client.request(**request_kwargs)

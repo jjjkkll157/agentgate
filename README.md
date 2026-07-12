@@ -24,7 +24,7 @@ AgentGate does this once, right, as a local sidecar.
 ## Install
 
 ```bash
-pip install agentgate
+pip install git+https://github.com/jjjkkll157/agentgate.git
 ```
 
 Python 3.10 or newer.
@@ -146,7 +146,7 @@ AgentGate 把这件事做一次、做对。
 ## 安装
 
 ```bash
-pip install agentgate
+pip install git+https://github.com/jjjkkll157/agentgate.git
 ```
 
 需要 Python 3.10 以上。

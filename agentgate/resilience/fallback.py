@@ -82,10 +82,13 @@ class FallbackRunner:
             "method": tool.method,
             "url": url,
             "timeout": tool.timeout,
+            "headers": {**tool.headers},
         }
         if tool.method in ("POST", "PUT", "PATCH"):
             request_kwargs["json"] = {**tool.body_template, **params}
         elif tool.method == "GET":
+            request_kwargs["params"] = {**tool.params, **params}
+        elif tool.method == "DELETE":
             request_kwargs["params"] = {**tool.params, **params}
 
         resp = await client.request(**request_kwargs)

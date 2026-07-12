@@ -1,6 +1,7 @@
 """FastAPI application — the proxy server."""
 
 import httpx
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
@@ -23,16 +24,14 @@ def create_app(config_path: str) -> FastAPI:
     health_monitor = HealthMonitor(cfg)
     health_monitor._breakers = pipeline._breakers  # wire health → breakers
 
-    app = FastAPI(title="AgentGate", version="0.1.0", docs_url=None, redoc_url=None)
-
-    @app.on_event("startup")
-    async def _startup():
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
         await health_monitor.start(client)
-
-    @app.on_event("shutdown")
-    async def _shutdown():
+        yield
         await health_monitor.stop()
         await client.aclose()
+
+    app = FastAPI(title="AgentGate", version="0.1.0", docs_url=None, redoc_url=None, lifespan=lifespan)
 
     app.include_router(dashboard_router)
 
