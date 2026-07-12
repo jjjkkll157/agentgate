@@ -1,6 +1,6 @@
 [project]
 name = "agentgate"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local reliability proxy for AI agent tool calls — retry, circuit breaker, rate limit, schema validation."
 readme = "README.md"
 license = "MIT"
