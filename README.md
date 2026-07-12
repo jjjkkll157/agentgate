@@ -55,8 +55,9 @@ Dashboard at `http://localhost:9400/dashboard`.
 | Capability | Detail |
 |------------|--------|
 | Auto retry | Exponential backoff + jitter. Per-tool config. |
-| Rate limit aware | Reads `X-RateLimit-Remaining` headers, throttles locally. |
-| Circuit breaker | N failures → trip → cooldown → probe → recover. |
+| Rate limit aware | Reads `X-RateLimit-Remaining` headers from responses, syncs token bucket. |
+| Circuit breaker | N failures → trip → cooldown → one probe → recover or re-trip. |
+| Schema validation | Input/output JSON Schema checks before and after every call. |
 | Structured errors | `{"error":true,"reason":"circuit_open","retry_after":30}` — agents parse these. |
 | Result cache | Same params → cached response within TTL. |
 | Fallback chains | Primary fails → try the next tool in your list. |
@@ -172,8 +173,9 @@ curl -X GET "http://localhost:9400/tool/web_search?q=test"
 | 功能 | 说明 |
 |------|------|
 | 自动重试 | 指数退避加随机抖动，每个工具独立配置 |
-| 限流感知 | 读取 `X-RateLimit-Remaining` 头，快到上限时自动降速排队 |
-| 熔断保护 | 连续 N 次失败后跳闸，冷却后探测恢复 |
+| 限流感知 | 读取 `X-RateLimit-Remaining` 响应头，同步本地令牌桶 |
+| 熔断保护 | 连续 N 次失败后跳闸，冷却后只放一个探测请求，成功则恢复 |
+| Schema 校验 | 请求前后做 JSON Schema 输入/输出校验 |
 | 结构化错误 | 统一返回 `{"error":true,"reason":"..."}`，Agent 能解析 |
 | 结果缓存 | TTL 内同样参数直接返回缓存 |
 | 降级链路 | 主工具挂了自动切备用 |
