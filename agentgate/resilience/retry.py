@@ -1,13 +1,18 @@
-"""Exponential backoff retry with configurable jitter and rate-limit-awareness."""
+"""Exponential backoff retry with Retry-After header awareness."""
 
 import asyncio
 import random
-import time
-from typing import Any
+from typing import Optional
 
 
 class RetryPolicy:
-    """Decides whether and when to retry a failed tool call."""
+    """Decides whether and when to retry a failed tool call.
+
+    If the upstream returns a ``Retry-After`` header the policy
+    uses that value instead of the configured backoff for that
+    one attempt.  This avoids hammering an API that explicitly
+    told us to wait.
+    """
 
     RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 
@@ -27,10 +32,14 @@ class RetryPolicy:
         if attempt >= self.max_attempts:
             return False
         if status_code is None:
-            return True  # connection error — retry
+            return True  # connection error
         return status_code in self.RETRYABLE_STATUSES
 
-    def delay_for(self, attempt: int) -> float:
+    def delay_for(self, attempt: int, retry_after_seconds: float | None = None) -> float:
+        """Compute delay, bounded by ``max_delay``.  If ``retry_after_seconds``
+        is provided (from a Retry-After header), use that value directly."""
+        if retry_after_seconds is not None and retry_after_seconds > 0:
+            return min(retry_after_seconds, self.max_delay)
         if self.backoff == "exponential":
             raw = self.initial_delay * (2 ** (attempt - 1))
         elif self.backoff == "linear":
@@ -41,6 +50,6 @@ class RetryPolicy:
         jitter = capped * 0.3 * random.random()
         return capped + jitter
 
-    async def wait(self, attempt: int):
-        delay = self.delay_for(attempt)
+    async def wait(self, attempt: int, retry_after_seconds: float | None = None):
+        delay = self.delay_for(attempt, retry_after_seconds)
         await asyncio.sleep(delay)

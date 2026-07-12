@@ -54,14 +54,18 @@ Dashboard at `http://localhost:9400/dashboard`.
 
 | Capability | Detail |
 |------------|--------|
-| Auto retry | Exponential backoff + jitter. Per-tool config. |
+| Auto retry | Exponential backoff + jitter. Honors `Retry-After` headers from upstream. |
 | Rate limit aware | Reads `X-RateLimit-Remaining` headers from responses, syncs token bucket. |
 | Circuit breaker | N failures → trip → cooldown → one probe → recover or re-trip. |
+| Concurrency cap | Per-tool `max_concurrent` — semaphore-based, configurable. |
 | Schema validation | Input/output JSON Schema checks before and after every call. |
+| Middleware hooks | User-defined `before` / `after` Python hooks per tool. |
 | Structured errors | `{"error":true,"reason":"circuit_open","retry_after":30}` — agents parse these. |
 | Result cache | Same params → cached response within TTL. |
 | Fallback chains | Primary fails → try the next tool in your list. |
+| Health probes | Background periodic health checks for each tool endpoint. |
 | Web dashboard | `localhost:9400/dashboard` — requests, latency, error rate. EN/中 toggle. |
+| Prometheus metrics | `localhost:9400/metrics` — counters, latency histograms. |
 
 ## Config reference
 
@@ -172,14 +176,18 @@ curl -X GET "http://localhost:9400/tool/web_search?q=test"
 
 | 功能 | 说明 |
 |------|------|
-| 自动重试 | 指数退避加随机抖动，每个工具独立配置 |
+| 自动重试 | 指数退避加随机抖动。遵守上游 `Retry-After` 头，不盲目重试 |
 | 限流感知 | 读取 `X-RateLimit-Remaining` 响应头，同步本地令牌桶 |
-| 熔断保护 | 连续 N 次失败后跳闸，冷却后只放一个探测请求，成功则恢复 |
+| 熔断保护 | 连续 N 次失败后跳闸，冷却后只放一个探测请求 |
+| 并发控制 | 每个工具可配 `max_concurrent`，信号量限流 |
 | Schema 校验 | 请求前后做 JSON Schema 输入/输出校验 |
+| 中间件钩子 | 用户自定义 `before` / `after` Python 函数，每个工具独立配置 |
 | 结构化错误 | 统一返回 `{"error":true,"reason":"..."}`，Agent 能解析 |
 | 结果缓存 | TTL 内同样参数直接返回缓存 |
 | 降级链路 | 主工具挂了自动切备用 |
+| 健康探测 | 后台定时检查各工具健康端点 |
 | Web 面板 | `localhost:9400/dashboard`，中英切换，实时看请求/延迟/错误率 |
+| Prometheus 指标 | `localhost:9400/metrics` — 计数器、延迟直方图 |
 
 ## 配置参考
 

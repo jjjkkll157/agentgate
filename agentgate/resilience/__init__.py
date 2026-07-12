@@ -1,13 +1,11 @@
-"""Resilience components for AgentGate.
-
-Each module is a standalone concern — retry, rate limiting, circuit breaking,
-fallback chains. They lack cross-dependencies so you can use any subset.
-"""
+"""Resilience components for AgentGate."""
 
 from agentgate.resilience.retry import RetryPolicy
 from agentgate.resilience.ratelimit import RateLimiter
 from agentgate.resilience.circuit import CircuitBreaker, CircuitState
 from agentgate.resilience.fallback import FallbackRunner
+from agentgate.resilience.concurrency import ConcurrencyLimiter
+from agentgate.resilience.health import HealthMonitor
 
 __all__ = [
     "RetryPolicy",
@@ -15,4 +13,6 @@ __all__ = [
     "CircuitBreaker",
     "CircuitState",
     "FallbackRunner",
+    "ConcurrencyLimiter",
+    "HealthMonitor",
 ]

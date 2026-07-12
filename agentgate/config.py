@@ -14,9 +14,12 @@ _DEFAULT_SCHEMA = {
     "retry": {"max_attempts": 3, "backoff": "exponential", "initial_delay": 1.0, "max_delay": 60.0},
     "ratelimit": {"max_per_minute": 60, "strategy": "wait"},
     "circuit_breaker": {"failure_threshold": 5, "cooldown_seconds": 30},
+    "concurrency": {"max_concurrent": 0},  # 0 = unlimited
+    "health": {},                          # no health check by default
     "timeout": 30.0,
     "cache": {"ttl_seconds": 0},
     "fallback": [],
+    "middleware": {"before": [], "after": []},
 }
 
 
@@ -60,6 +63,9 @@ class ToolConfig:
         self.timeout = raw.get("timeout", _DEFAULT_SCHEMA["timeout"])
         self.cache = raw.get("cache", _DEFAULT_SCHEMA["cache"])
         self.fallback = raw.get("fallback", _DEFAULT_SCHEMA["fallback"])
+        self.concurrency = raw.get("concurrency", _DEFAULT_SCHEMA["concurrency"])
+        self.health = raw.get("health", _DEFAULT_SCHEMA["health"])
+        self.middleware = raw.get("middleware", _DEFAULT_SCHEMA["middleware"])
         self.schema_in = raw.get("schema", {}).get("input")
         self.schema_out = raw.get("schema", {}).get("output")
         self.description = raw.get("description", "")

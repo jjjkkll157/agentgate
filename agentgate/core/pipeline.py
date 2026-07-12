@@ -8,9 +8,11 @@ import httpx
 
 from agentgate.config import Config, ToolConfig
 from agentgate.core.context import RequestContext
+from agentgate.core.middleware import resolve_hook, run_hooks
 from agentgate.resilience.retry import RetryPolicy
 from agentgate.resilience.ratelimit import RateLimiter
 from agentgate.resilience.circuit import CircuitBreaker
+from agentgate.resilience.concurrency import ConcurrencyLimiter
 from agentgate.cache import Cache
 from agentgate.validation import format_error, format_success, validate_input, validate_output
 
@@ -18,13 +20,18 @@ logger = logging.getLogger("agentgate.proxy")
 
 
 class Pipeline:
-    """Runs one tool invocation through retry, rate-limit, circuit-breaker, cache."""
+    """Runs one tool invocation through retry, rate-limit, circuit-breaker,
+    concurrency control, middleware hooks, and cache."""
 
     def __init__(self, config: Config, cache: Cache | None = None):
         self._config = config
         self._cache = cache or Cache()
         self._limiters: dict[str, RateLimiter] = {}
         self._breakers: dict[str, CircuitBreaker] = {}
+        self._concurrency: dict[str, ConcurrencyLimiter] = {}
+        # resolved middleware hooks (lazy)
+        self._before_hooks: dict[str, list] = {}
+        self._after_hooks: dict[str, list] = {}
 
     def _get_limiter(self, tool: ToolConfig) -> RateLimiter:
         if tool.name not in self._limiters:
@@ -38,6 +45,28 @@ class Pipeline:
                 cooldown_seconds=tool.circuit_breaker["cooldown_seconds"],
             )
         return self._breakers[tool.name]
+
+    def _get_concurrency(self, tool: ToolConfig) -> ConcurrencyLimiter | None:
+        max_cc = tool.concurrency.get("max_concurrent", 0)
+        if max_cc <= 0:
+            return None
+        if tool.name not in self._concurrency:
+            self._concurrency[tool.name] = ConcurrencyLimiter(max_cc)
+        return self._concurrency[tool.name]
+
+    def _resolve_before_hooks(self, tool: ToolConfig) -> list:
+        if tool.name not in self._before_hooks:
+            self._before_hooks[tool.name] = [
+                resolve_hook(p) for p in tool.middleware.get("before", [])
+            ]
+        return self._before_hooks[tool.name]
+
+    def _resolve_after_hooks(self, tool: ToolConfig) -> list:
+        if tool.name not in self._after_hooks:
+            self._after_hooks[tool.name] = [
+                resolve_hook(p) for p in tool.middleware.get("after", [])
+            ]
+        return self._after_hooks[tool.name]
 
     async def _try_fallbacks(self, tool: ToolConfig, ctx: RequestContext, params: dict, client: httpx.AsyncClient) -> dict:
         """Walk the fallback chain and return the first success."""
@@ -58,6 +87,12 @@ class Pipeline:
         tool = self._config.get(tool_name)
         ctx = RequestContext(tool_name=tool_name)
         logger.info("request %s tool=%s", ctx.request_id, tool_name)
+
+        # --- before hooks ---
+        before_hooks = self._resolve_before_hooks(tool)
+        if before_hooks:
+            context = {"tool": tool_name, "request_id": ctx.request_id}
+            params = await run_hooks(before_hooks, params, context)
 
         # --- input schema validation ---
         schema_err = validate_input(params, tool.schema_in)
@@ -91,7 +126,28 @@ class Pipeline:
             retry_after = breaker.retry_after()
             return format_error("circuit_open", f"circuit open for {tool.name!r}", retry_after=retry_after, circuit_open=True)
 
-        # --- retry loop ---
+        # --- concurrency control ---
+        cc = self._get_concurrency(tool)
+        if cc is not None:
+            if not await cc.acquire(timeout=30.0):
+                ctx.finish()
+                return format_error("concurrency_limit", "too many concurrent requests")
+
+        try:
+            result = await self._run_retry_loop(tool, ctx, params, client, breaker)
+        finally:
+            if cc is not None:
+                cc.release()
+
+        # --- after hooks ---
+        after_hooks = self._resolve_after_hooks(tool)
+        if after_hooks:
+            context = {"tool": tool_name, "request_id": ctx.request_id}
+            result = await run_hooks(after_hooks, result, context)
+
+        return result
+
+    async def _run_retry_loop(self, tool: ToolConfig, ctx: RequestContext, params: dict, client: httpx.AsyncClient, breaker: CircuitBreaker) -> dict:
         retry = RetryPolicy(
             max_attempts=tool.retry["max_attempts"],
             backoff=tool.retry["backoff"],
@@ -135,7 +191,8 @@ class Pipeline:
 
                 if not retry.should_retry(getattr(exc, "status_code", None), attempt):
                     break
-                await retry.wait(attempt)
+                ra = getattr(exc, "retry_after_seconds", None)
+                await retry.wait(attempt, ra)
 
         # --- all retries exhausted, try fallbacks ---
         if tool.fallback:
@@ -189,6 +246,13 @@ class Pipeline:
         if resp.status_code >= 400:
             err = RuntimeError(f"{resp.status_code} {resp.reason_phrase}")
             err.status_code = resp.status_code  # type: ignore
+            # Carry Retry-After if present (seconds or HTTP-date).
+            ra = resp.headers.get("Retry-After")
+            if ra is not None:
+                try:
+                    err.retry_after_seconds = float(ra)  # type: ignore
+                except ValueError:
+                    err.retry_after_seconds = 0  # type: ignore
             try:
                 body_text = resp.text[:500]
             except Exception:
