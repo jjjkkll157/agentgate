@@ -128,7 +128,7 @@ class Pipeline:
             ctx.error = "circuit_open"
             ctx.finish()
             retry_after = breaker.retry_after()
-            return format_error("circuit_open", f"circuit open for {tool.name!r}", retry_after=retry_after, circuit_open=True)
+            return format_error("circuit_open", f"circuit open for {tool.name!r}", retry_after=retry_after, circuit_open=True, request_id=ctx.request_id)
 
         # --- rate limit ---
         limiter = self._get_limiter(tool)
@@ -137,14 +137,14 @@ class Pipeline:
             if not waited:
                 ctx.error = "rate_limit_timeout"
                 ctx.finish()
-                return format_error("rate_limit_timeout", "queue wait exhausted")
+                return format_error("rate_limit_timeout", "queue wait exhausted", request_id=ctx.request_id)
 
         # --- concurrency control ---
         cc = self._get_concurrency(tool)
         if cc is not None:
             if not await cc.acquire(timeout=30.0):
                 ctx.finish()
-                return format_error("concurrency_limit", "too many concurrent requests")
+                return format_error("concurrency_limit", "too many concurrent requests", request_id=ctx.request_id)
 
         try:
             result = await self._run_retry_loop(tool, ctx, params, client, breaker, ttl)
@@ -225,6 +225,7 @@ class Pipeline:
             circuit_open=breaker.state.value == "open",
             status_code=getattr(last_error, "status_code", 0) if last_error else 0,
             raw_body=getattr(last_error, "body", ""),
+            request_id=ctx.request_id,
         )
 
     # ---------- internal ----------

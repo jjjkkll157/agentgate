@@ -11,6 +11,7 @@ def format_error(
     circuit_open: bool = False,
     raw_body: str = "",
     status_code: int = 0,
+    request_id: str = "",
 ) -> dict:
     """Build a stable error dict the agent can rely on.
 
@@ -21,6 +22,8 @@ def format_error(
         "reason": reason,
         "detail": detail,
     }
+    if request_id:
+        err["request_id"] = request_id
     if retry_after > 0:
         err["retry_after"] = round(retry_after, 1)
     if circuit_open:

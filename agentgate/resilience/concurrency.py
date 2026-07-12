@@ -1,7 +1,6 @@
 """Async semaphore-based concurrency limiter for tool calls."""
 
 import asyncio
-from typing import Optional
 
 
 class ConcurrencyLimiter:
@@ -17,7 +16,8 @@ class ConcurrencyLimiter:
         self._sem = asyncio.Semaphore(max_concurrent)
 
     async def acquire(self, timeout: float | None = 30.0) -> bool:
-        """Try to grab a slot.  Returns False on timeout, True on success."""
+        """Try to grab a slot. False on timeout, True on success.
+        Caller MUST call release() after True."""
         if timeout is None:
             await self._sem.acquire()
             return True
@@ -29,9 +29,12 @@ class ConcurrencyLimiter:
 
     def release(self):
         """Return a slot to the pool."""
-        self._sem.release()
+        try:
+            self._sem.release()
+        except ValueError:
+            pass  # already released
 
     @property
     def available(self) -> int:
-        """Number of free slots (may be negative if over-committed)."""
+        """Number of free slots."""
         return self._sem._value
