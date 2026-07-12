@@ -31,7 +31,7 @@ class RateLimiter:
                 if self._tokens >= 1.0:
                     self._tokens -= 1.0
                     return True
-            await asyncio.sleep(1.0 / self._refill_rate)
+            await asyncio.sleep(min(1.0, 1.0 / self._refill_rate))
         return False
 
     def _refill(self):

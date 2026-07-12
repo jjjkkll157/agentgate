@@ -8,6 +8,11 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
+> ⚠️ **未经作者明确书面许可，禁止将本代码用于任何商业用途。**  
+> 如需商业授权，请联系：**liluelue7@gmail.com**  
+> ⚠️ **Commercial use of this code is prohibited without explicit written permission from the author.**  
+> For commercial licensing inquiries: **liluelue7@gmail.com**
+
 <p align="center"><code>pip install git+https://github.com/jjjkkll157/agentgate.git</code></p>
 
 AgentGate is a local HTTP proxy for AI agent tool calls. It sits between your agent and the external APIs it calls, handling retries, rate limits, circuit breaking, and error formatting. One `pip install`, one YAML file, no cloud, no Kubernetes. Runs on `localhost:9400`.
