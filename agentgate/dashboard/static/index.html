@@ -7,48 +7,135 @@
 <link rel="stylesheet" href="/dashboard/style.css">
 </head>
 <body>
-<div class="topbar">
-  <h1>AgentGate <span class="dim">v0.1.0</span></h1>
-  <div class="stats" id="stats">
-    <span class="stat">requests: <strong id="stat-total">-</strong></span>
-    <span class="stat">errors: <strong id="stat-errors">-</strong></span>
-    <span class="stat">avg latency: <strong id="stat-latency">-</strong> ms</span>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">⚡</span>
+    <h1>AgentGate <span class="ver">v0.1.0</span></h1>
+  </div>
+  <div class="topbar-right">
+    <div class="live-dot"></div>
+    <span lang-bind="en" class="live-text">live</span>
+    <span lang-bind="zh" class="live-text" style="display:none">运行中</span>
+    <button class="lang-switch" onclick="toggleLang()" title="Switch language / 切换语言">
+      <span class="lang-label-en">EN</span>
+      <span class="lang-label-zh" style="display:none">中</span>
+    </button>
+  </div>
+</header>
+
+<div class="stats-row" id="stats">
+  <div class="stat-card">
+    <div class="stat-val" id="stat-total">-</div>
+    <div lang-bind="en" class="stat-label">Requests</div>
+    <div lang-bind="zh" class="stat-label" style="display:none">总请求</div>
+  </div>
+  <div class="stat-card err-card">
+    <div class="stat-val" id="stat-errors">-</div>
+    <div lang-bind="en" class="stat-label">Errors</div>
+    <div lang-bind="zh" class="stat-label" style="display:none">错误</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" id="stat-latency">-</div>
+    <div lang-bind="en" class="stat-label">Avg Latency</div>
+    <div lang-bind="zh" class="stat-label" style="display:none">平均延迟</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" id="stat-rate">-</div>
+    <div lang-bind="en" class="stat-label">Error Rate</div>
+    <div lang-bind="zh" class="stat-label" style="display:none">错误率</div>
   </div>
 </div>
 
-<div class="log-container">
+<div class="log-panel">
   <div class="log-header">
-    <h2>request log</h2>
-    <button onclick="fetchLog()" class="btn">⟳ refresh</button>
+    <h2 lang-bind="en">Request Log</h2>
+    <h2 lang-bind="zh" style="display:none">请求日志</h2>
+    <div class="log-actions">
+      <span class="auto-refresh" id="refresh-indicator">⟳ 5s</span>
+      <button onclick="fetchLog()" class="btn" lang-bind="en">Refresh</button>
+      <button onclick="fetchLog()" class="btn" lang-bind="zh" style="display:none">刷新</button>
+      <button onclick="clearLog()" class="btn btn-clear" lang-bind="en">Clear</button>
+      <button onclick="clearLog()" class="btn btn-clear" lang-bind="zh" style="display:none">清空</button>
+    </div>
   </div>
-  <div id="log-entries"></div>
+  <div class="log-table">
+    <div class="log-row log-head">
+      <span lang-bind="en">Time</span><span lang-bind="zh" style="display:none">时间</span>
+      <span lang-bind="en">Tool</span><span lang-bind="zh" style="display:none">工具</span>
+      <span>Status</span>
+      <span lang-bind="en">Latency</span><span lang-bind="zh" style="display:none">延迟</span>
+      <span lang-bind="en">Cache</span><span lang-bind="zh" style="display:none">缓存</span>
+      <span lang-bind="en">Error</span><span lang-bind="zh" style="display:none">错误信息</span>
+    </div>
+    <div id="log-entries"></div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>AgentGate</span>
+  <span class="sep">·</span>
+  <a href="https://github.com/jjjkkll157/agentgate" target="_blank">GitHub</a>
+  <span class="sep">·</span>
+  <span>MIT</span>
 </div>
 
 <script>
-async function fetchLog() {
-  const [logRes, statsRes] = await Promise.all([
-    fetch('/dashboard/api/log?limit=50'),
-    fetch('/dashboard/api/stats')
-  ]);
-  const entries = await logRes.json();
-  const stats = await statsRes.json();
+let currentLang = 'en';
+let logEntries = [];
 
-  document.getElementById('stat-total').textContent = stats.total_requests;
-  document.getElementById('stat-errors').textContent = stats.errors;
-  document.getElementById('stat-latency').textContent = stats.avg_latency_ms;
-
-  const container = document.getElementById('log-entries');
-  container.innerHTML = entries.map(e => {
-    const cls = e.error ? 'entry error' : e.cached ? 'entry cached' : 'entry';
-    return `<div class="${cls}">
-      <span class="ts">${e.ts || ''}</span>
-      <span class="tool">${e.tool || ''}</span>
-      <span class="status">${e.status || ''}</span>
-      <span class="latency">${e.latency_ms != null ? Math.round(e.latency_ms) + 'ms' : ''}</span>
-      <span class="err">${e.error || ''}</span>
-    </div>`;
-  }).join('\n');
+function toggleLang() {
+  currentLang = currentLang === 'en' ? 'zh' : 'en';
+  document.querySelectorAll('[lang-bind="en"]').forEach(el => {
+    el.style.display = currentLang === 'en' ? '' : 'none';
+  });
+  document.querySelectorAll('[lang-bind="zh"]').forEach(el => {
+    el.style.display = currentLang === 'zh' ? '' : 'none';
+  });
+  document.querySelector('.lang-label-en').style.display = currentLang === 'en' ? '' : 'none';
+  document.querySelector('.lang-label-zh').style.display = currentLang === 'zh' ? '' : 'none';
+  renderLog();
 }
+
+async function fetchLog() {
+  try {
+    const [logRes, statsRes] = await Promise.all([
+      fetch('/dashboard/api/log?limit=50'),
+      fetch('/dashboard/api/stats')
+    ]);
+    logEntries = await logRes.json();
+    const stats = await statsRes.json();
+    document.getElementById('stat-total').textContent = stats.total_requests;
+    document.getElementById('stat-errors').textContent = stats.errors;
+    document.getElementById('stat-latency').textContent = stats.avg_latency_ms + 'ms';
+    document.getElementById('stat-rate').textContent = (stats.error_rate * 100).toFixed(1) + '%';
+    renderLog();
+  } catch(e) { console.error(e); }
+}
+
+function renderLog() {
+  const container = document.getElementById('log-entries');
+  if (!logEntries.length) {
+    container.innerHTML = '<div class="empty-state">' +
+      (currentLang === 'en' ? 'No requests yet. Send a tool call to get started.' : '暂无请求。发送工具调用即可看到日志。') +
+      '</div>';
+    return;
+  }
+  container.innerHTML = logEntries.slice().reverse().map(e => {
+    const cls = e.error ? 'log-row error' : e.cached ? 'log-row cached' : 'log-row';
+    const statusCls = e.status >= 400 ? 'badge badge-err' : e.status > 0 ? 'badge badge-ok' : 'badge';
+    return `<div class="${cls}">
+      <span class="col-ts">${e.ts || ''}</span>
+      <span class="col-tool">${e.tool || ''}</span>
+      <span class="${statusCls}">${e.status || '-'}</span>
+      <span class="col-lat">${e.latency_ms != null ? Math.round(e.latency_ms) + 'ms' : ''}</span>
+      <span class="col-cache">${e.cached ? 'HIT' : ''}</span>
+      <span class="col-err">${e.error || ''}</span>
+    </div>`;
+  }).join('');
+}
+
+function clearLog() { logEntries = []; renderLog(); }
 
 fetchLog();
 setInterval(fetchLog, 5000);

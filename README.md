@@ -1,5 +1,3 @@
-# AgentGate
-
 <p align="center">
   <button id="btn-en" onclick="switchLang('en')" style="background:#238636;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;margin:2px">English</button>
   <button id="btn-zh" onclick="switchLang('zh')" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;padding:4px 12px;border-radius:4px;cursor:pointer;margin:2px">中文</button>
@@ -7,47 +5,17 @@
 
 <div id="lang-en">
 
-A local HTTP proxy for AI agent tool calls. Handles retries, rate limits,
-circuit breaking, and structured error formatting. One `pip install`, one
-YAML config file. No cloud, no K8s — runs on `localhost:9400`.
-
-</div>
-
-<div id="lang-zh" style="display:none">
-
-一个本地 HTTP 代理，专门处理 AI Agent 的工具调用可靠性。
-自动重试、感知速率限制、熔断保护、结构化错误返回。
-`pip install` 安装，一个 YAML 配置文件启动。不依赖云服务，不需要
-Kubernetes，就在 `localhost:9400` 上跑。
-
-</div>
-
-<script>
-function switchLang(lang) {
-  document.getElementById('lang-en').style.display = lang === 'en' ? 'block' : 'none';
-  document.getElementById('lang-zh').style.display = lang === 'zh' ? 'block' : 'none';
-  document.getElementById('btn-en').style.background = lang === 'en' ? '#238636' : '#21262d';
-  document.getElementById('btn-en').style.color = lang === 'en' ? '#fff' : '#c9d1d9';
-  document.getElementById('btn-en').style.border = lang === 'en' ? 'none' : '1px solid #30363d';
-  document.getElementById('btn-zh').style.background = lang === 'zh' ? '#238636' : '#21262d';
-  document.getElementById('btn-zh').style.color = lang === 'zh' ? '#fff' : '#c9d1d9';
-  document.getElementById('btn-zh').style.border = lang === 'zh' ? 'none' : '1px solid #30363d';
-}
-</script>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jjjkkll157/agentgate/master/docs/dashboard-screenshot.png" alt="AgentGate Dashboard" width="720">
+</p>
 
 ---
 
-<div id="lang-en">
+AgentGate is a local HTTP proxy for AI agent tool calls. It sits between your agent and the external APIs it calls, handling retries, rate limits, circuit breaking, and error formatting. One `pip install`, one YAML file, no cloud, no Kubernetes. Runs on `localhost:9400`.
 
-## Why
+If you have built an AI agent that calls external tools (search APIs, email, databases, anything with an HTTP endpoint), you know the drill: 429s at peak traffic, random 500s from upstream, schema changes that break your JSON parsing, connection drops mid-request. Every codebase copies the same retry boilerplate, and every codebase gets it slightly wrong.
 
-AI agents call external APIs — search, email, extraction, databases.
-Those APIs fail often. Rate limits, schema changes, 5xx errors,
-connection drops.
-
-Every project copies the same retry boilerplate. Every project gets
-it slightly wrong. AgentGate does it once, correctly, as a local
-sidecar you configure in YAML.
+AgentGate does this once, right, as a local sidecar.
 
 ## Install
 
@@ -55,11 +23,11 @@ sidecar you configure in YAML.
 pip install agentgate
 ```
 
-Python 3.10+.
+Python 3.10 or newer.
 
 ## Quick start
 
-Write a `tools.yaml`:
+Create `tools.yaml`:
 
 ```yaml
 tools:
@@ -77,7 +45,7 @@ tools:
       cooldown_seconds: 30
 ```
 
-Start:
+Start it:
 
 ```bash
 agentgate --config tools.yaml
@@ -93,18 +61,13 @@ Dashboard at `http://localhost:9400/dashboard`.
 
 ## What you get
 
-- **Retry** — exponential backoff with jitter. Per-tool config.
-- **Rate limit aware** — reads `X-RateLimit-Remaining` headers,
-  throttles locally.
-- **Circuit breaker** — N consecutive failures → stops forwarding
-  for a cooldown, then tests with one probe.
-- **Structured errors** — every failure returns
-  `{"error": true, "reason": "circuit_open", "retry_after": 30}`.
-  Agents parse these instead of choking on raw HTML.
-- **Caching** — same params → cached response within TTL.
-- **Fallback chains** — primary tool fails, try the next one in your list.
-- **Dashboard** — `localhost:9400/dashboard` shows every request,
-  latency, errors.
+- **Automatic retry** with exponential backoff and jitter. Configurable per tool.
+- **Rate limit awareness**. Reads `X-RateLimit-Remaining` headers from responses and throttles locally before hitting hard limits.
+- **Circuit breaker**. N consecutive failures and the breaker trips. Requests fast-fail for a cooldown, then a single probe checks if the upstream is back.
+- **Structured errors**. Every failure returns `{"error": true, "reason": "circuit_open", "retry_after": 30}`. Your agent parses these instead of choking on raw HTML error pages.
+- **Result caching**. Same params return cached data within the TTL window. Saves API costs.
+- **Fallback chains**. Primary tool fails, try the next one in your list.
+- **Web dashboard** at `localhost:9400/dashboard`. Shows every request, latency, error rate. Switches between English and Chinese.
 
 ## Config reference
 
@@ -127,12 +90,12 @@ tools:
       cooldown_seconds: 30
     timeout: 30.0
     cache:
-      ttl_seconds: 300         # 0 = no cache
+      ttl_seconds: 300         # 0 disables caching
     fallback:
       - backup_search
 ```
 
-## Architecture
+## How it works
 
 ```
   AI Agent
@@ -142,21 +105,18 @@ tools:
 ┌─────────────────────┐
 │   AgentGate :9400   │
 │                     │
-│  cache ──→ hit? return cached
-│  rate limit ──→ queue if no tokens
-│  circuit brk ──→ reject if open
-│  retry loop ──→ 429/5xx → wait → retry
-│  fallback ──→ try backups on exhaustion
-│  forward ──→ real API
+│  cache  → hit? return cached
+│  rate limit → queue if no tokens left
+│  circuit breaker → reject if circuit open
+│  retry loop → 429/5xx → wait → retry
+│  fallback → try backup tools on exhaustion
+│  forward → real API
 └─────────────────────┘
 ```
 
-## Related
+## Why not use [agentgateway](https://github.com/agentgateway/agentgateway)?
 
-- [agentgateway](https://github.com/agentgateway/agentgateway) —
-  enterprise agent governance for K8s. Not a local dev tool.
-- [LiteLLM](https://github.com/BerriAI/litellm) — LLM API proxy.
-  LLM-only; doesn't handle general tool APIs.
+Agentgateway is an enterprise agent governance layer built for Kubernetes. It requires CRDs, Gateway API, and a cluster to run. AgentGate is a single process you start with `pip install && agentgate start`. Same root concept, different user. Agentgateway is for platform teams managing hundreds of agents across an organization. AgentGate is for a developer who wants their tool calls to stop breaking.
 
 ## License
 
@@ -166,13 +126,17 @@ MIT
 
 <div id="lang-zh" style="display:none">
 
-## 为什么
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jjjkkll157/agentgate/master/docs/dashboard-screenshot.png" alt="AgentGate Dashboard" width="720">
+</p>
 
-AI Agent 调用外部 API——搜索、邮件、数据提取——这些 API 经常挂。
-限流、schema 变更、5xx 错误、连接断开。
+---
 
-每个项目都在复制粘贴同样的重试代码，写得到处都不一样。
-AgentGate 把这件事做一次、做对——一个本地 sidecar，一个 YAML 文件搞定。
+AgentGate 是一个本地 HTTP 代理，专门解决 AI Agent 调用外部工具时的可靠性问题。它架在 Agent 和外部 API 之间，自动处理重试、限流、熔断和错误格式化。`pip install` 安装，一个 YAML 文件配置，不依赖云服务，不需要 Kubernetes，就在 `localhost:9400` 上跑。
+
+写过一个 AI Agent 你就知道：搜素 API 突然返回 429，上游随机 500，JSON 格式偷偷变了导致解析炸掉，连接半路断开。每个项目都在复制粘贴同样的重试代码，写得五花八门，修了一遍又一遍。
+
+AgentGate 把这件事做一次、做对。
 
 ## 安装
 
@@ -180,11 +144,11 @@ AgentGate 把这件事做一次、做对——一个本地 sidecar，一个 YAML
 pip install agentgate
 ```
 
-需要 Python 3.10+。
+需要 Python 3.10 以上。
 
 ## 快速开始
 
-写一个 `tools.yaml`：
+创建 `tools.yaml`：
 
 ```yaml
 tools:
@@ -218,13 +182,13 @@ curl -X GET "http://localhost:9400/tool/web_search?q=test"
 
 ## 功能
 
-- **自动重试** — 指数退避 + 随机抖动。每个工具独立配置。
-- **速率限制感知** — 读取 `X-RateLimit-Remaining` 响应头，本地排队。
-- **熔断器** — 连续 N 次失败后停止转发，冷却后探测恢复。
-- **结构化错误** — 所有失败返回统一格式，Agent 能解析处理。
-- **缓存** — 相同参数的调用在 TTL 内直接返回缓存，省 API 费用。
+- **自动重试** — 指数退避加随机抖动，每个工具独立配置。
+- **限流感知** — 读取 API 返回的 `X-RateLimit-Remaining` 头，快到上限时自动降速排队。
+- **熔断保护** — 连续 N 次失败后跳闸，冷却时间内直接拒绝请求，随后用一次探测判断上游是否恢复。
+- **结构化错误** — 所有失败返回 `{"error": true, "reason": "circuit_open", "retry_after": 30}`，Agent 能解析处理，而不是面对一坨原始 HTML 报错页面。
+- **结果缓存** — 同样参数在 TTL 窗口内直接返回缓存，省 API 费用。
 - **降级链路** — 主工具挂了自动切备用工具。
-- **监控面板** — `localhost:9400/dashboard` 实时查看请求、延迟、错误。
+- **Web 面板** — `localhost:9400/dashboard` 实时看请求量、延迟、错误率。支持中英文切换。
 
 ## 配置参考
 
@@ -247,12 +211,12 @@ tools:
       cooldown_seconds: 30
     timeout: 30.0
     cache:
-      ttl_seconds: 300         # 0 = 不缓存
+      ttl_seconds: 300         # 0 关闭缓存
     fallback:
       - backup_search
 ```
 
-## 架构
+## 运行流程
 
 ```
   AI Agent
@@ -262,24 +226,34 @@ tools:
 ┌─────────────────────┐
 │   AgentGate :9400   │
 │                     │
-│  缓存 ──→ 命中？直接返回
-│  限流 ──→ 没令牌就排队
-│  熔断 ──→ 熔断中直接拒绝
-│  重试 ──→ 429/5xx → 等待 → 重试
-│  降级 ──→ 重试耗尽后切备用
-│  转发 ──→ 真实 API
+│  缓存 → 命中？直接返回
+│  限流 → 令牌不足则排队
+│  熔断 → 断路中直接拒绝
+│  重试 → 429/5xx → 等待 → 重试
+│  降级 → 重试耗尽后切备用
+│  转发 → 真实 API
 └─────────────────────┘
 ```
 
-## 相关项目
+## 和 [agentgateway](https://github.com/agentgateway/agentgateway) 有什么区别？
 
-- [agentgateway](https://github.com/agentgateway/agentgateway) —
-  企业级 Agent 治理网关，需要 K8s。不是本地开发工具。
-- [LiteLLM](https://github.com/BerriAI/litellm) — LLM API 代理。
-  只管 LLM 调用，不管通用工具 API。
+Agentgateway 是企业级 Agent 治理网关，需要 Kubernetes 集群、CRD 和 Gateway API 才能跑。AgentGate 是单个进程，`pip install && agentgate start` 就行。核心思路类似，但面向完全不同的用户——Agentgateway 是给平台团队管理上百个 Agent 用的，AgentGate 是给一个开发者写的，让他的工具调用别老挂。
 
 ## 许可证
 
 MIT
 
 </div>
+
+<script>
+function switchLang(lang) {
+  document.getElementById('lang-en').style.display = lang === 'en' ? 'block' : 'none';
+  document.getElementById('lang-zh').style.display = lang === 'zh' ? 'block' : 'none';
+  document.getElementById('btn-en').style.background = lang === 'en' ? '#238636' : '#21262d';
+  document.getElementById('btn-en').style.color = lang === 'en' ? '#fff' : '#c9d1d9';
+  document.getElementById('btn-en').style.border = lang === 'en' ? 'none' : '1px solid #30363d';
+  document.getElementById('btn-zh').style.background = lang === 'zh' ? '#238636' : '#21262d';
+  document.getElementById('btn-zh').style.color = lang === 'zh' ? '#fff' : '#c9d1d9';
+  document.getElementById('btn-zh').style.border = lang === 'zh' ? 'none' : '1px solid #30363d';
+}
+</script>
