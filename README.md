@@ -116,6 +116,133 @@ cp presets/brave-search.yaml tools.yaml
 agentgate --config tools.yaml
 ```
 
+## Usage guide
+
+### With any AI agent (Python)
+
+```python
+import requests
+
+# Instead of calling APIs directly, point your agent at AgentGate.
+# AgentGate handles retries, rate limits, circuit breaking automatically.
+resp = requests.get(
+    "http://localhost:9400/tool/web_search",
+    params={"q": "latest AI news"},
+)
+data = resp.json()
+
+if data["error"]:
+    reason = data.get("reason", "unknown")
+    wait = data.get("retry_after", 0)
+    print(f"tool error: {reason}, retry in {wait}s")
+else:
+    results = data["data"]
+    print(f"got {len(results)} results")
+```
+
+### With OpenAI function calling
+
+```python
+import openai, requests
+
+def tool_handler(name: str, args: dict) -> dict:
+    resp = requests.post(
+        f"http://localhost:9400/tool/{name}",
+        json=args,
+    )
+    return resp.json()
+
+# Wire into OpenAI:
+# completion = client.chat.completions.create(
+#     model="gpt-4", messages=[...],
+#     tools=[{"type": "function", "function": {"name": "web_search", ...}}]
+# )
+# for tool_call in completion.choices[0].message.tool_calls:
+#     result = tool_handler(tool_call.function.name,
+#                           json.loads(tool_call.function.arguments))
+```
+
+### With LangChain / LlamaIndex
+
+```python
+# LangChain: override the default requests Session
+import requests
+from langchain.tools import tool
+
+@tool
+def search(query: str) -> dict:
+    """Search the web."""
+    r = requests.get("http://localhost:9400/tool/web_search", params={"q": query})
+    return r.json()["data"]
+```
+
+### From any language (curl)
+
+```bash
+# Call any registered tool via HTTP
+curl -X POST http://localhost:9400/tool/send_email \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '{"to": "user@example.com", "subject": "hello"}'
+
+# Check tool health
+curl http://localhost:9400/health
+
+# Reset a tripped circuit breaker
+curl -X POST http://localhost:9400/dashboard/api/breakers/web_search/reset
+```
+
+### Adding authentication
+
+```yaml
+# tools.yaml
+tools:
+  web_search:
+    endpoint: https://api.brave.com/res/v1/web/search
+    # ... tool config ...
+
+auth:
+  enabled: true
+  tokens:
+    - "sk-your-secret-token"
+```
+
+```bash
+# Now every /tool/* call requires a bearer token:
+curl -H "Authorization: Bearer sk-your-secret-token" \
+  http://localhost:9400/tool/web_search?q=test
+```
+
+### Multiple tools + fallback chain
+
+```yaml
+tools:
+  primary_search:
+    endpoint: https://api.search.com/v1
+    method: GET
+    retry: {max_attempts: 2}
+    circuit_breaker: {failure_threshold: 3, cooldown_seconds: 60}
+    fallback:
+      - backup_search
+
+  backup_search:
+    endpoint: https://backup-search.com/v1
+    method: GET
+    retry: {max_attempts: 1}
+```
+
+When `primary_search` fails all retries, AgentGate automatically calls `backup_search`.
+
+### Tuning for production
+
+| Goal | Setting |
+|------|---------|
+| Reduce API costs | `cache.ttl_seconds: 300` (cache identical requests 5 min) |
+| Survive upstream outages | `circuit_breaker.failure_threshold: 3` (trip after 3 failures) |
+| Avoid rate limit bans | `ratelimit.max_per_minute: 50` (stay under API quota) |
+| Cap parallelism per tool | `concurrency.max_concurrent: 10` |
+| Degrade gracefully | `fallback: [backup_v1, backup_v2]` (try backups in order) |
+
 ## Config reference
 
 ```yaml

@@ -4,29 +4,33 @@ from agentgate.validation import format_error, format_success, validate_input, v
 
 
 class TestCache:
-    def test_set_and_get(self):
+    @pytest.mark.asyncio
+    async def test_set_and_get(self):
         c = Cache()
-        c.set("search", "POST", {"q": "test"}, {"results": [1, 2]})
-        val = c.get("search", "POST", {"q": "test"}, ttl=60)
+        await c.set("search", "POST", {"q": "test"}, {"results": [1, 2]})
+        val = await c.get("search", "POST", {"q": "test"}, ttl=60)
         assert val == {"results": [1, 2]}
 
-    def test_miss_on_different_params(self):
+    @pytest.mark.asyncio
+    async def test_miss_on_different_params(self):
         c = Cache()
-        c.set("search", "POST", {"q": "test"}, [])
-        assert c.get("search", "POST", {"q": "other"}, ttl=60) is None
+        await c.set("search", "POST", {"q": "test"}, [])
+        assert await c.get("search", "POST", {"q": "other"}, ttl=60) is None
 
-    def test_ttl_expiry(self):
+    @pytest.mark.asyncio
+    async def test_ttl_expiry(self):
         import time
         c = Cache()
-        c.set("x", "GET", {}, "val")
+        await c.set("x", "GET", {}, "val")
         c._store[c._key("x", "GET", {})] = (time.monotonic() - 999, "val")
-        assert c.get("x", "GET", {}, ttl=1) is None
+        assert await c.get("x", "GET", {}, ttl=1) is None
 
-    def test_clear(self):
+    @pytest.mark.asyncio
+    async def test_clear(self):
         c = Cache()
-        c.set("x", "GET", {}, "val")
-        c.clear()
-        assert c.get("x", "GET", {}, ttl=60) is None
+        await c.set("x", "GET", {}, "val")
+        await c.clear()
+        assert await c.get("x", "GET", {}, ttl=60) is None
 
 
 class TestErrorFormatter:

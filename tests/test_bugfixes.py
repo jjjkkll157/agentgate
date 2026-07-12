@@ -21,7 +21,7 @@ class TestBug1CacheTTLInRetryLoop:
             cfg = Config(p)
             pipe = Pipeline(cfg)
             # Cache a value so the next call hits
-            pipe._cache.set("echo", "POST", {"x": 1}, {"cached": True})
+            await pipe._cache.set("echo", "POST", {"x": 1}, {"cached": True})
             async with httpx.AsyncClient() as c:
                 result = await pipe.run("echo", {"x": 1}, c)
             assert result["cached"] is True

@@ -116,7 +116,7 @@ class Pipeline:
 
         # --- cache check ---
         ttl = tool.cache.get("ttl_seconds", 0)
-        cached = self._cache.get(tool.name, tool.method, params, ttl)
+        cached = await self._cache.get(tool.name, tool.method, params, ttl)
         if cached is not None:
             ctx.cached = True
             ctx.finish()
@@ -189,7 +189,7 @@ class Pipeline:
                     continue
                 # cache on success (skip if TTL is 0)
                 if ttl > 0:
-                    self._cache.set(tool.name, tool.method, params, result["data"])
+                    await self._cache.set(tool.name, tool.method, params, result["data"])
                 ctx.finish()
                 logger.info(
                     "ok %s tool=%s attempt=%d latency=%.0fms",

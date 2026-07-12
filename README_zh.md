@@ -116,6 +116,118 @@ cp presets/brave-search.yaml tools.yaml
 agentgate --config tools.yaml
 ```
 
+## 使用指南
+
+### 在任何 AI Agent 里用（Python）
+
+```python
+import requests
+
+# 不再直接调 API，改走 AgentGate。重试、限流、熔断全自动。
+resp = requests.get(
+    "http://localhost:9400/tool/web_search",
+    params={"q": "最新 AI 新闻"},
+)
+data = resp.json()
+
+if data["error"]:
+    reason = data.get("reason", "unknown")
+    wait = data.get("retry_after", 0)
+    print(f"工具挂了: {reason}，{wait} 秒后重试")
+else:
+    results = data["data"]
+    print(f"搜到 {len(results)} 条结果")
+```
+
+### 接入 OpenAI function calling
+
+```python
+import openai, requests
+
+def tool_handler(name: str, args: dict) -> dict:
+    resp = requests.post(
+        f"http://localhost:9400/tool/{name}",
+        json=args,
+    )
+    return resp.json()
+
+# 接入方式：
+# completion = client.chat.completions.create(
+#     model="gpt-4", messages=[...],
+#     tools=[{"type": "function", "function": {"name": "web_search", ...}}]
+# )
+# for tool_call in completion.choices[0].message.tool_calls:
+#     result = tool_handler(tool_call.function.name,
+#                           json.loads(tool_call.function.arguments))
+```
+
+### 从任意语言调用（curl）
+
+```bash
+# 调用任意注册的工具
+curl -X POST http://localhost:9400/tool/send_email \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '{"to": "user@example.com", "subject": "hello"}'
+
+# 检查工具健康状态
+curl http://localhost:9400/health
+
+# 手动重置断路器
+curl -X POST http://localhost:9400/dashboard/api/breakers/web_search/reset
+```
+
+### 启用鉴权
+
+```yaml
+# tools.yaml
+tools:
+  web_search:
+    endpoint: https://api.brave.com/res/v1/web/search
+    # ... 工具配置 ...
+
+auth:
+  enabled: true
+  tokens:
+    - "sk-your-secret-token"
+```
+
+```bash
+# 开启后每次调用都要带 token：
+curl -H "Authorization: Bearer sk-your-secret-token" \
+  http://localhost:9400/tool/web_search?q=test
+```
+
+### 多工具 + 降级链路
+
+```yaml
+tools:
+  primary_search:
+    endpoint: https://api.search.com/v1
+    method: GET
+    retry: {max_attempts: 2}
+    circuit_breaker: {failure_threshold: 3, cooldown_seconds: 60}
+    fallback:
+      - backup_search
+
+  backup_search:
+    endpoint: https://backup-search.com/v1
+    method: GET
+    retry: {max_attempts: 1}
+```
+
+`primary_search` 重试全挂后，AgentGate 自动切到 `backup_search`。
+
+### 生产环境调优
+
+| 目标 | 配置 |
+|------|------|
+| 省 API 费用 | `cache.ttl_seconds: 300`（相同请求 5 分钟内走缓存） |
+| 上游挂了顶住 | `circuit_breaker.failure_threshold: 3`（连挂 3 次跳闸） |
+| 避免被限流封 | `ratelimit.max_per_minute: 50`（卡在 API 配额以下） |
+| 限制并行数 | `concurrency.max_concurrent: 10` |
+| 优雅降级 | `fallback: [backup_v1, backup_v2]`（按顺序切备用） |
+
 ## 配置参考
 
 ```yaml

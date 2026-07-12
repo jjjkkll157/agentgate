@@ -7,6 +7,7 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(prog="agentgate", description="Local reliability proxy for AI agent tools")
+    parser.add_argument("--version", "-V", action="version", version="agentgate 0.2.0")
     parser.add_argument("--config", "-c", default="tools.yaml", help="path to tools.yaml")
     parser.add_argument("--port", "-p", type=int, default=9400, help="listen port (default: 9400)")
     parser.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
@@ -27,6 +28,6 @@ def main():
     from agentgate.app import create_app
 
     app = create_app(args.config)
-    print(f"AgentGate v0.1.0 — listening on http://{args.host}:{args.port}")
+    print(f"AgentGate v0.2.0 — listening on http://{args.host}:{args.port}")
     print(f"dashboard: http://{args.host}:{args.port}/dashboard")
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level.lower())
