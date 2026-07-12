@@ -1,12 +1,15 @@
 """FastAPI application — the proxy server."""
 
 import httpx
+import yaml
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from agentgate.config import Config
 from agentgate.core.pipeline import Pipeline
+from agentgate.core.auth import TokenAuth, load_auth
+from agentgate.resilience.ratelimit import RateLimiter
 from agentgate.cache import Cache
 from agentgate.dashboard import router as dashboard_router
 from agentgate.resilience.health import HealthMonitor
@@ -17,12 +20,20 @@ from agentgate.telemetry.metrics import MetricsCollector
 def create_app(config_path: str) -> FastAPI:
     import time
     cfg = Config(config_path)
+
+    # load auth config
+    raw = yaml.safe_load(open(config_path, encoding="utf-8")) or {}
+    auth = load_auth(raw)
+
     cache = Cache()
     pipeline = Pipeline(cfg, cache=cache)
     client = httpx.AsyncClient()
     metrics = MetricsCollector()
     health_monitor = HealthMonitor(cfg)
-    health_monitor._breakers = pipeline._breakers  # wire health → breakers
+    health_monitor._breakers = pipeline._breakers
+
+    # global rate limiter for the entire proxy (100 req/s by default)
+    global_limiter = RateLimiter(max_per_minute=6000)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -45,6 +56,17 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.api_route("/tool/{name}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def call_tool(name: str, request: Request):
+        # global rate limit
+        if not await global_limiter.acquire():
+            return JSONResponse(
+                {"error": True, "reason": "global_rate_limit", "detail": "server overloaded"},
+                status_code=429,
+            )
+
+        # auth check
+        if auth.enabled and not auth.validate(request.headers.get("Authorization")):
+            raise HTTPException(status_code=401, detail="unauthorized: invalid or missing token")
+
         if name not in cfg.tools:
             raise HTTPException(status_code=404, detail=f"unknown tool: {name!r}")
 

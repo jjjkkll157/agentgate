@@ -10,7 +10,7 @@
 #   timeout     — per-request timeout in seconds
 #   cache       — ttl_seconds (0 = no cache)
 #   fallback    — list of other tool names to try if this one fails
-#   schema      — optional input/output JSON Schema for validation (NYI)
+#   schema      — optional input/output JSON Schema for validation
 
 tools:
   web_search:

@@ -7,7 +7,8 @@ from pathlib import Path
 @pytest.fixture(autouse=True)
 def isolate_env(monkeypatch):
     """Prevent tests from accidentally reading real env vars."""
-    pass
+    for var in ("BRAVE_API_KEY", "RESEND_API_KEY", "EXTRACT_API_KEY", "MY_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
 
 
 @pytest.fixture
