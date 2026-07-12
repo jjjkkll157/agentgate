@@ -11,6 +11,7 @@ def main():
     parser.add_argument("--port", "-p", type=int, default=9400, help="listen port (default: 9400)")
     parser.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    parser.add_argument("--log-file", default=None, help="write logs to FILE in addition to stderr")
 
     args = parser.parse_args()
 
@@ -20,7 +21,7 @@ def main():
         sys.exit(1)
 
     from agentgate.telemetry import setup_logging
-    setup_logging(args.log_level)
+    setup_logging(args.log_level, args.log_file)
 
     import uvicorn
     from agentgate.app import create_app

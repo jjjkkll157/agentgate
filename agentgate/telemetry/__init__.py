@@ -2,12 +2,17 @@
 
 import logging
 import sys
+from pathlib import Path
 
-import structlog
 
+def setup_logging(level: str = "INFO", log_file: str | None = None) -> None:
+    """Wire structlog to stdlib logging so FastAPI/uvicorn logs are captured.
 
-def setup_logging(level: str = "INFO") -> None:
-    """Wire structlog to stdlib logging so FastAPI/uvicorn logs are captured."""
+    If ``log_file`` is provided, append a rotating-file handler that
+    writes to that path in addition to stderr.
+    """
+    import structlog
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -20,4 +25,15 @@ def setup_logging(level: str = "INFO") -> None:
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    logging.basicConfig(format="%(message)s", stream=sys.stderr, level=getattr(logging, level.upper()))
+
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
+    if log_file:
+        path = Path(log_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(str(path), encoding="utf-8"))
+
+    logging.basicConfig(
+        format="%(message)s",
+        handlers=handlers,
+        level=getattr(logging, level.upper()),
+    )

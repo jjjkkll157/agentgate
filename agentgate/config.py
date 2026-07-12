@@ -95,7 +95,17 @@ class Config:
                     continue
                 merged = _deep_merge(_DEFAULT_SCHEMA, tool_def)
                 merged = _interpolate_env(merged)
-                self.tools[name] = ToolConfig(name, merged)
+                try:
+                    tc = ToolConfig(name, merged)
+                except ValueError as exc:
+                    raise ValueError(f"invalid tool {name!r}: {exc}") from exc
+                self.tools[name] = tc
+                # Validate critical fields
+                if not tc.endpoint.startswith(("http://", "https://")):
+                    raise ValueError(
+                        f"tool {name!r}: endpoint must start with http:// or https://, "
+                        f"got {tc.endpoint!r}"
+                    )
 
     def get(self, name: str) -> ToolConfig:
         cfg = self.tools.get(name)

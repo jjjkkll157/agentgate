@@ -1,9 +1,10 @@
 """FastAPI application — the proxy server."""
 
 import httpx
+import logging
 import yaml
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from agentgate.config import Config
@@ -16,13 +17,16 @@ from agentgate.resilience.health import HealthMonitor
 from agentgate.telemetry.request_log import record
 from agentgate.telemetry.metrics import MetricsCollector
 
+logger = logging.getLogger("agentgate")
+
 
 def create_app(config_path: str) -> FastAPI:
     import time
     cfg = Config(config_path)
 
-    # load auth config
-    raw = yaml.safe_load(open(config_path, encoding="utf-8")) or {}
+    # load auth config — parse auth section from the same raw config
+    import yaml as _yaml
+    raw = _yaml.safe_load(open(config_path, encoding="utf-8").read()) or {}
     auth = load_auth(raw)
 
     cache = Cache()
@@ -35,6 +39,9 @@ def create_app(config_path: str) -> FastAPI:
     # global rate limiter for the entire proxy (100 req/s by default)
     global_limiter = RateLimiter(max_per_minute=6000)
 
+    # dashboard rate limiter (10 req/s)
+    dashboard_limiter = RateLimiter(max_per_minute=600)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await health_monitor.start(client)
@@ -44,11 +51,34 @@ def create_app(config_path: str) -> FastAPI:
 
     app = FastAPI(title="AgentGate", version="0.1.0", docs_url=None, redoc_url=None, lifespan=lifespan)
 
+    # CORS: allow localhost-originated requests (browser-based tools)
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.include_router(dashboard_router)
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "tools": cfg.list_names()}
+        breaker_states = {
+            name: b.state.value
+            for name, b in pipeline._breakers.items()
+        }
+        return {
+            "status": "ok",
+            "version": "0.1.0",
+            "tools": cfg.list_names(),
+            "breakers": breaker_states,
+            "monitor_running": health_monitor.running,
+        }
+
+    @app.get("/version")
+    async def version():
+        return {"version": "0.1.0", "project": "AgentGate"}
 
     @app.get("/metrics")
     async def metrics_endpoint():
@@ -56,19 +86,28 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.api_route("/tool/{name}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def call_tool(name: str, request: Request):
+        import uuid as _uuid
+        req_id = _uuid.uuid4().hex[:12]
+
         # global rate limit
         if not await global_limiter.acquire():
             return JSONResponse(
-                {"error": True, "reason": "global_rate_limit", "detail": "server overloaded"},
+                {"error": True, "reason": "global_rate_limit", "detail": "server overloaded", "request_id": req_id},
                 status_code=429,
             )
 
         # auth check
         if auth.enabled and not auth.validate(request.headers.get("Authorization")):
-            raise HTTPException(status_code=401, detail="unauthorized: invalid or missing token")
+            return JSONResponse(
+                {"error": True, "reason": "unauthorized", "detail": "invalid or missing token", "request_id": req_id},
+                status_code=401,
+            )
 
         if name not in cfg.tools:
-            raise HTTPException(status_code=404, detail=f"unknown tool: {name!r}")
+            return JSONResponse(
+                {"error": True, "reason": "unknown_tool", "detail": f"unknown tool: {name!r}", "request_id": req_id},
+                status_code=404,
+            )
 
         if request.method == "GET":
             params = dict(request.query_params)
@@ -79,7 +118,14 @@ def create_app(config_path: str) -> FastAPI:
                 params = {}
 
         t0 = time.monotonic()
-        result = await pipeline.run(name, params, client)
+        try:
+            result = await pipeline.run(name, params, client)
+        except Exception as exc:
+            logger.exception("unhandled pipeline error tool=%s", name)
+            return JSONResponse(
+                {"error": True, "reason": "internal_error", "detail": str(exc), "request_id": req_id},
+                status_code=502,
+            )
         latency_ms = (time.monotonic() - t0) * 1000
 
         entry = {

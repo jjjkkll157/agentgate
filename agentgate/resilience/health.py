@@ -63,8 +63,8 @@ class HealthMonitor:
                         logger.warning("health fail: %s (%d)", name, resp.status_code)
                         if breaker is not None:
                             await breaker.on_failure()
-                except Exception:
-                    logger.debug("health unreachable: %s", name, exc_info=True)
+                except Exception as exc:
+                    logger.debug("health unreachable: %s — %s", name, exc)
                     breaker = self._breakers.get(name)
                     if breaker is not None:
                         await breaker.on_failure()
